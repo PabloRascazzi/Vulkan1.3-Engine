@@ -1,5 +1,5 @@
 ## Honour Project - Winter 2023
-Title: Real-Time GPU-Accelerated Ray-Tracing of Mirrors using Vulkan API
+Title: Real-Time GPU-Accelerated Ray-Tracing of Mirrors using Vulkan API  
 Author: Pablo Rascazzi
 
 ### Instructions
