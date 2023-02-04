@@ -181,6 +181,10 @@
     <ClInclude Include="include\time.h" />
     <ClInclude Include="include\window.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="resource\shaders\GLSL\shader.frag" />
+    <None Include="resource\shaders\GLSL\shader.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

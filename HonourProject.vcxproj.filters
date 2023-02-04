@@ -66,4 +66,12 @@
       <UniqueIdentifier>{7315f748-947f-42a9-9627-813248d0de29}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="resource\shaders\GLSL\shader.frag">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+    <None Include="resource\shaders\GLSL\shader.vert">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+  </ItemGroup>
 </Project>
