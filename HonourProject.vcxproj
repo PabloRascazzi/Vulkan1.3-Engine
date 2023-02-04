@@ -168,12 +168,16 @@
     <ClCompile Include="source\engine_context.cpp" />
     <ClCompile Include="source\input.cpp" />
     <ClCompile Include="source\main.cpp" />
+    <ClCompile Include="source\pipeline\pipeline.cpp" />
+    <ClCompile Include="source\pipeline\standard_pipeline.cpp" />
     <ClCompile Include="source\time.cpp" />
     <ClCompile Include="source\window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\engine_context.h" />
     <ClInclude Include="include\input.h" />
+    <ClInclude Include="include\pipeline\pipeline.h" />
+    <ClInclude Include="include\pipeline\standard_pipeline.h" />
     <ClInclude Include="include\time.h" />
     <ClInclude Include="include\window.h" />
   </ItemGroup>

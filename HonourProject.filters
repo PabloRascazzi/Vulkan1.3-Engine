@@ -20,6 +20,12 @@
     <Filter Include="Resource Files\Shaders\GLSL">
       <UniqueIdentifier>{13697289-5013-4901-b49d-37205ff13dfd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Pipeline">
+      <UniqueIdentifier>{aa7c66a0-f723-4a5b-b630-08a477110a91}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Pipeline">
+      <UniqueIdentifier>{c64d34b5-dd75-46cc-a518-111d3b0b30de}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\main.cpp">
@@ -37,6 +43,12 @@
     <ClCompile Include="source\input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\pipeline\pipeline.cpp">
+      <Filter>Source Files\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pipeline\standard_pipeline.cpp">
+      <Filter>Source Files\Pipeline</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\time.h">
@@ -50,6 +62,12 @@
     </ClInclude>
     <ClInclude Include="include\input.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pipeline\pipeline.h">
+      <Filter>Header Files\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pipeline\standard_pipeline.h">
+      <Filter>Header Files\Pipeline</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
