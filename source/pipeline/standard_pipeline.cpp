@@ -1,16 +1,19 @@
 #include <pipeline/standard_pipeline.h>
+#include <mesh.h>
 
 namespace core {
 
-	void StandardPipeline::setup(VkDevice device, VkRenderPass renderPass, VkExtent2D swapChainExtent) {
-		this->device = device;
+	StandardPipeline::StandardPipeline(VkDevice device, VkRenderPass renderPass, VkExtent2D swapChainExtent) : Pipeline(device) {
+		this->type = PipelineType::PIPELINE_TYPE_RASTERIZATION;
 		this->renderPass = renderPass;
 		this->swapChainExtent = swapChainExtent;
 
-		this->type = PipelineType::PIPELINE_TYPE_RASTERIZATION;
-
 		createPipelineLayout();
 		createPipeline();
+	}
+
+	StandardPipeline::~StandardPipeline() { 
+		cleanup(); 
 	}
 
 	void StandardPipeline::cleanup() {

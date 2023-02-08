@@ -3,6 +3,9 @@
 
 #include <vulkan/vulkan.hpp>
 
+#define VMA_IMPLEMENTATION
+#include "vma/vk_mem_alloc.h"
+
 #include <iostream>
 #include <vector>
 
@@ -25,6 +28,9 @@ namespace core {
     vk::Queue EngineContext::graphicsQueue = VK_NULL_HANDLE;
     vk::Queue EngineContext::presentQueue = VK_NULL_HANDLE;
 
+    vk::CommandPool EngineContext::commandPool;
+    VmaAllocator EngineContext::allocator;
+
     vk::RenderPass EngineContext::renderPass = VK_NULL_HANDLE;
     vk::SwapchainKHR EngineContext::swapChain = VK_NULL_HANDLE;
     std::vector<vk::Image> EngineContext::swapChainImages;
@@ -42,8 +48,11 @@ namespace core {
             setupDeviceExtensions();
             selectPhysicalDevice();
             createLogicalDevice();
+            createCommandPool();
+            createAllocator();
             createSwapChain();
             createImageViews();
+            createRenderPass();
         }
         catch (const std::runtime_error& e) {
             std::cout << e.what() << std::endl;
@@ -68,6 +77,8 @@ namespace core {
             device.destroyImageView(imageView);
         }
         device.destroySwapchainKHR(swapChain);
+        vmaDestroyAllocator(allocator);
+        device.destroyCommandPool(commandPool);
         device.destroy();
         instance.destroySurfaceKHR(surface);
         window.cleanup();
@@ -293,6 +304,19 @@ namespace core {
         return support;
     }
 
+    void EngineContext::createAllocator() {
+        VmaAllocatorCreateInfo allocatorInfo{};
+        allocatorInfo.vulkanApiVersion = ENGINE_GRAPHICS_API_VERSION;
+        allocatorInfo.physicalDevice = physicalDevice;
+        allocatorInfo.device = device;
+        allocatorInfo.instance = instance;
+        allocatorInfo.pVulkanFunctions = nullptr; // optional
+
+        if (vmaCreateAllocator(&allocatorInfo, &allocator) != VK_SUCCESS) {
+            throw std::runtime_error("Could not create memory allocator.");
+        }
+    }
+
     void EngineContext::createSwapChain() {
         QueueFamilyIndices indices = queryQueueFamilies(physicalDevice);
         SwapChainSupport swapChainSupport = querySwapChainSupport(physicalDevice);
@@ -458,7 +482,91 @@ namespace core {
         }
     }
 
+    void EngineContext::createCommandPool() {
+        QueueFamilyIndices queueFamilyIndices = queryQueueFamilies(physicalDevice);
+
+        VkCommandPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+        VkCommandPool commandPool;
+        if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+            throw std::runtime_error("Could not create command pool.");
+        }
+        EngineContext::commandPool = commandPool;
+    }
+
     void EngineContext::exit() {
         window.quit();
+    }
+
+    //***************************************************************************************//
+    //                                   Memory Allocator                                    //
+    //***************************************************************************************//
+
+    void EngineContext::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& alloc) {
+        VkBufferCreateInfo bufferCreateInfo{};
+		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferCreateInfo.size = size;
+		bufferCreateInfo.usage = usage;
+		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        
+        VmaAllocationCreateInfo allocCreateInfo{};
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+        VmaAllocationInfo allocInfo;
+        if (vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &alloc, &allocInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create buffer.");
+        }
+    }
+
+    void EngineContext::mapBufferData(VmaAllocation& alloc, size_t size, void* data) {
+        void* location;
+        vmaMapMemory(allocator, alloc, &location);
+        memcpy(location, data, size);
+        vmaUnmapMemory(allocator, alloc);
+    }
+
+    void EngineContext::copyBufferData(VkBuffer& srcBuffer, VkBuffer& dstBuffer, size_t size) {
+        // Create new command buffer.
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = commandPool;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer cmdBuffer;
+        vkAllocateCommandBuffers(device, &allocInfo, &cmdBuffer);
+
+        // Record command buffer.
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+        VkBufferCopy copyRegion{};
+        copyRegion.srcOffset = 0;
+        copyRegion.dstOffset = 0;
+        copyRegion.size = size;
+        vkCmdCopyBuffer(cmdBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+        vkEndCommandBuffer(cmdBuffer);
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmdBuffer;
+
+        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(graphicsQueue);
+
+        // Destroy command buffer
+        vkFreeCommandBuffers(device, commandPool, 1, &cmdBuffer);
+    }
+
+    void EngineContext::destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc) {
+        vmaDestroyBuffer(allocator, buffer, alloc);
     }
 }

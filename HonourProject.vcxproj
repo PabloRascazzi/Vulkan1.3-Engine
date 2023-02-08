@@ -104,7 +104,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(VULKAN_SDK)\Third-Party\Include;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(VULKAN_SDK)\Third-Party\Include;include;library</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -148,7 +148,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(VULKAN_SDK)\Third-Party\Include;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(VULKAN_SDK)\Third-Party\Include;include;library</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -168,6 +168,7 @@
     <ClCompile Include="source\engine_context.cpp" />
     <ClCompile Include="source\input.cpp" />
     <ClCompile Include="source\main.cpp" />
+    <ClCompile Include="source\mesh.cpp" />
     <ClCompile Include="source\pipeline\pipeline.cpp" />
     <ClCompile Include="source\pipeline\standard_pipeline.cpp" />
     <ClCompile Include="source\time.cpp" />
@@ -176,6 +177,7 @@
   <ItemGroup>
     <ClInclude Include="include\engine_context.h" />
     <ClInclude Include="include\input.h" />
+    <ClInclude Include="include\mesh.h" />
     <ClInclude Include="include\pipeline\pipeline.h" />
     <ClInclude Include="include\pipeline\standard_pipeline.h" />
     <ClInclude Include="include\time.h" />

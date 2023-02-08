@@ -22,6 +22,9 @@
     <ClCompile Include="source\pipeline\standard_pipeline.cpp">
       <Filter>Source Files\Pipeline</Filter>
     </ClCompile>
+    <ClCompile Include="source\mesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\window.h">
@@ -41,6 +44,9 @@
     </ClInclude>
     <ClInclude Include="include\pipeline\standard_pipeline.h">
       <Filter>Header Files\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="include\mesh.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

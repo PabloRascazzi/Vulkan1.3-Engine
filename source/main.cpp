@@ -1,5 +1,6 @@
 #include <engine_context.h>
 #include <input.h>
+#include <mesh.h>
 #include <pipeline/standard_pipeline.h>
 
 #include <iostream>
@@ -25,6 +26,22 @@ int main() {
     std::cout << "Graphics Queue: " << EngineContext::getGraphicsQueue() << std::endl;
     std::cout << "Present Queue:  " << EngineContext::getPresentQueue()  << std::endl;
 
+    // Create Mesh.
+    const std::vector<Vertex> vertices = {
+	    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+        {{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+    };
+    const std::vector<uint32_t> indices = {
+	    0, 1, 2,
+	    2, 3, 0,
+    };
+    Mesh* mesh = new Mesh((float*)vertices.data(), vertices.size(), (uint32_t*)indices.data(), indices.size());
+
+    // Create Pipeline.
+    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
+
     // Main loop
     while (EngineContext::update()) {
         if (Input::getKeyDown(INPUT_KEY_ESCAPE)) {
@@ -37,6 +54,12 @@ int main() {
         Input::reset();
     }
 
+    // Wait for all GPU commands to finish.
+    EngineContext::getDevice().waitIdle();
+
+    // Clean up objects.
+    delete mesh;
+    delete pipeline;
     // Clean up engine.
     EngineContext::cleanup();
     Input::cleanup();

@@ -5,6 +5,11 @@
 
 namespace core {
 
+	Pipeline::Pipeline(VkDevice device) {
+		this->type = PipelineType::PIPELINE_TYPE_NONE;
+		this->device = device;
+	}
+
 	VkShaderModule Pipeline::createShaderModule(const std::string& filename) {
 		// Read all file data into a buffer.
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);

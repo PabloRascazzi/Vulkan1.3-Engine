@@ -11,6 +11,7 @@
 
 #include <vulkan/vulkan.hpp>
 #define ENGINE_GRAPHICS_API_VERSION VK_API_VERSION_1_3
+#include "vma/vk_mem_alloc.h"
 
 #include <window.h>
 
@@ -67,6 +68,11 @@ namespace core {
 
 		static void exit();
 
+		static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& alloc);
+		static void mapBufferData(VmaAllocation& alloc, size_t size, void* data);
+		static void copyBufferData(VkBuffer& srcAlloc, VkBuffer& dstAlloc, size_t size);
+		static void destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc);
+
 	private:
 		static Window window;
 		static vk::Instance instance;
@@ -79,6 +85,9 @@ namespace core {
 		static vk::Device device;
 		static vk::Queue graphicsQueue;
 		static vk::Queue presentQueue;
+
+		static vk::CommandPool commandPool;
+		static VmaAllocator allocator;
 
 		static vk::RenderPass renderPass;
 		static vk::SwapchainKHR swapChain;
@@ -94,9 +103,11 @@ namespace core {
 		static void setupDeviceExtensions();
 		static void selectPhysicalDevice();
 		static void createLogicalDevice();
+		static void createAllocator();
 		static void createSwapChain();
 		static void createRenderPass();
 		static void createImageViews();
+		static void createCommandPool();
 
 		static bool isDeviceSuitable(VkPhysicalDevice device);
 		static QueueFamilyIndices queryQueueFamilies(VkPhysicalDevice device);
