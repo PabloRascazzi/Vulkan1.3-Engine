@@ -25,6 +25,9 @@
     <ClCompile Include="source\mesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\pipeline\raytracing_pipeline.cpp">
+      <Filter>Source Files\Pipeline</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\window.h">
@@ -47,6 +50,9 @@
     </ClInclude>
     <ClInclude Include="include\mesh.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pipeline\raytracing_pipeline.h">
+      <Filter>Header Files\Pipeline</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

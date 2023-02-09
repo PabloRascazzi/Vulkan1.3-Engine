@@ -9,13 +9,13 @@
 
 namespace core {
 
-	struct StandardPushConstants {
+	struct StandardPushConstant {
 		glm::mat4 proj;
 		glm::mat4 world;
 		glm::mat4 view;
 
 		static uint32_t getSize() {
-			return sizeof(StandardPushConstants);
+			return sizeof(StandardPushConstant);
 		}
 	};
 

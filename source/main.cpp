@@ -2,6 +2,7 @@
 #include <input.h>
 #include <mesh.h>
 #include <pipeline/standard_pipeline.h>
+#include <pipeline/raytracing_pipeline.h>
 
 #include <iostream>
 #include <Vulkan/vulkan.h>

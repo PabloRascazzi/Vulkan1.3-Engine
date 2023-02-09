@@ -170,6 +170,7 @@
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\mesh.cpp" />
     <ClCompile Include="source\pipeline\pipeline.cpp" />
+    <ClCompile Include="source\pipeline\raytracing_pipeline.cpp" />
     <ClCompile Include="source\pipeline\standard_pipeline.cpp" />
     <ClCompile Include="source\time.cpp" />
     <ClCompile Include="source\window.cpp" />
@@ -179,6 +180,7 @@
     <ClInclude Include="include\input.h" />
     <ClInclude Include="include\mesh.h" />
     <ClInclude Include="include\pipeline\pipeline.h" />
+    <ClInclude Include="include\pipeline\raytracing_pipeline.h" />
     <ClInclude Include="include\pipeline\standard_pipeline.h" />
     <ClInclude Include="include\time.h" />
     <ClInclude Include="include\window.h" />

@@ -25,8 +25,8 @@ namespace core {
 		// Pipeline push constants.
 		VkPushConstantRange pushConstant;
 		pushConstant.offset = 0;
-		pushConstant.size = sizeof(StandardPushConstants);
-		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		pushConstant.size = sizeof(StandardPushConstant);
+		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
 		// Pipeline layout creation.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -36,11 +36,9 @@ namespace core {
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
-		VkPipelineLayout layout;
-		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout) != VK_SUCCESS) {
+		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, (VkPipelineLayout*)&layout) != VK_SUCCESS) {
 			throw std::runtime_error("Could not create pipeline layout.");
 		}
-		StandardPipeline::layout = layout;
 	}
 
 	void StandardPipeline::createPipeline() {
@@ -162,11 +160,9 @@ namespace core {
 		pipelineInfo.renderPass = renderPass;
 		pipelineInfo.subpass = 0;
 
-		VkPipeline pipeline;
-		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, (VkPipeline*)&pipeline) != VK_SUCCESS) {
 			throw std::runtime_error("Could not create graphics pipeline.");
 		}
-		StandardPipeline::pipeline = pipeline;
 
 		// Pipeline creation cleanup.
 		device.destroyShaderModule(vertShaderModule);
