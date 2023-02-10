@@ -201,17 +201,29 @@ namespace core {
             queueCreateInfos.push_back(queueCreateInfo);
         }
 
-        VkPhysicalDeviceFeatures deviceFeatures{};
-        // TODO - fetch device features wanted.
+        // Setup physical device features to enable.
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{};
+        accelFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+        accelFeature.accelerationStructure = VK_TRUE;
+
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR raytracingFeature{};
+        raytracingFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        raytracingFeature.rayTracingPipeline = VK_TRUE;
+        raytracingFeature.pNext = &accelFeature;
+
+        VkPhysicalDeviceFeatures2 deviceFeatures{};
+        deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        deviceFeatures.pNext = &raytracingFeature;
 
         // Generate create info for logical device.
         VkDeviceCreateInfo deviceCreateInfo{};
         deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
         deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-        deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+        deviceCreateInfo.pEnabledFeatures = nullptr; // Must have device features ptr if pNext is nullptr else nullptr.
         deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
         deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
+        deviceCreateInfo.pNext = &deviceFeatures;
 #if defined(_DEBUG)
         deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(layers.size());
         deviceCreateInfo.ppEnabledLayerNames = layers.data();
