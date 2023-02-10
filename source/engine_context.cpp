@@ -14,6 +14,10 @@
 #undef max
 #endif
 
+void load_extension_VK_KHR_acceleration_structure(VkDevice);
+void load_extension_VK_KHR_deferred_host_operations(VkDevice);
+void load_extension_VK_KHR_ray_tracing_pipeline(VkDevice);
+
 namespace core {
 
     Window EngineContext::window;
@@ -144,8 +148,10 @@ namespace core {
     }
 
     void EngineContext::setupDeviceExtensions() {
-        // Add swap chain extension
-        deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME); // Required to build swapchains.
+        deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME); // Required to build acceleration structures.
+        deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME); // Required for ray tracing pipeline.
+        deviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME); // Required to build and use ray tracing pipeline.
     }
 
     void EngineContext::selectPhysicalDevice() {
@@ -219,6 +225,11 @@ namespace core {
             throw std::runtime_error("Could not create logical device.");
         }
         EngineContext::device = device;
+
+        // load VK device extensions.
+        load_extension_VK_KHR_acceleration_structure(device);
+        load_extension_VK_KHR_deferred_host_operations(device);
+        load_extension_VK_KHR_ray_tracing_pipeline(device);
 
         // Cache graphics queue handle.
         VkQueue graphicsQueue;

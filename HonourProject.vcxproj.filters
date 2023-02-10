@@ -28,6 +28,9 @@
     <ClCompile Include="source\pipeline\raytracing_pipeline.cpp">
       <Filter>Source Files\Pipeline</Filter>
     </ClCompile>
+    <ClCompile Include="source\vulkan_extension.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\window.h">
@@ -83,6 +86,15 @@
       <Filter>Resource Files\Shaders\GLSL</Filter>
     </None>
     <None Include="resource\shaders\GLSL\shader.vert">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+    <None Include="resource\shaders\GLSL\raytrace.rchit">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+    <None Include="resource\shaders\GLSL\raytrace.rgen">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+    <None Include="resource\shaders\GLSL\raytrace.rmiss">
       <Filter>Resource Files\Shaders\GLSL</Filter>
     </None>
   </ItemGroup>

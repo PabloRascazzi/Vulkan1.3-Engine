@@ -42,6 +42,7 @@ int main() {
 
     // Create Pipeline.
     StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
+    RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice());
 
     // Main loop
     while (EngineContext::update()) {
@@ -61,6 +62,7 @@ int main() {
     // Clean up objects.
     delete mesh;
     delete pipeline;
+    delete RTpipeline;
     // Clean up engine.
     EngineContext::cleanup();
     Input::cleanup();

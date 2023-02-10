@@ -84,7 +84,7 @@ namespace core {
 
 		VkRayTracingShaderGroupCreateInfoKHR chitShaderGroupInfo{};
 		chitShaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-		chitShaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		chitShaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 		chitShaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
 		chitShaderGroupInfo.closestHitShader = 2;
 		chitShaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -104,5 +104,10 @@ namespace core {
 		if (vkCreateRayTracingPipelinesKHR(device, {}, {}, 1, &pipelineInfo, nullptr, (VkPipeline*)&pipeline) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create ray-tracing pipeline.");
 		}
+
+		// Pipeline creation cleanup.
+		device.destroyShaderModule(genShaderStageInfo.module);
+		device.destroyShaderModule(missShaderStageInfo.module);
+		device.destroyShaderModule(chitShaderStageInfo.module);
 	}
 }
