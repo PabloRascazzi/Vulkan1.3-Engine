@@ -51,6 +51,7 @@ int main() {
         }
 
         // Update and render game here
+        EngineContext::rasterize((Pipeline&)*pipeline, *mesh);
 
         // Reset Inputs.
         Input::reset();

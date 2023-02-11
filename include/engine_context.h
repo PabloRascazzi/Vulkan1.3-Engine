@@ -14,6 +14,8 @@
 #include "vma/vk_mem_alloc.h"
 
 #include <window.h>
+#include <pipeline/pipeline.h>
+#include <mesh.h>
 
 #include <string>
 #include <vector>
@@ -21,6 +23,8 @@
 #include <optional>
 
 namespace core {
+
+	const int MAX_FRAMES_IN_FLIGHT = 2;
 
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;
@@ -50,6 +54,9 @@ namespace core {
 		static void setup();
 		static bool update();
 		static void cleanup();
+
+		static void rasterize(Pipeline& pipeline, Mesh& mesh);
+		static void raytrace(Pipeline& pipeline);
 
 		static Window* getWindow() { return &window; }
 		static vk::Instance getInstance() { return instance; }
@@ -95,6 +102,12 @@ namespace core {
 		static std::vector<vk::ImageView> swapChainImageViews;
 		static vk::Format swapChainImageFormat;
 		static vk::Extent2D swapChainExtent;
+		static std::vector<vk::Framebuffer> swapChainFramebuffers;
+
+		static std::vector<vk::CommandBuffer> commandBuffers;
+		static std::vector<vk::Semaphore> imageAvailableSemaphores;
+		static std::vector<vk::Semaphore> renderFinishedSemaphores;
+		static std::vector<vk::Fence> inFlightFences;
 
 		static void setupInstanceExtensions();
 		static void setupValidationLayers();
@@ -108,6 +121,12 @@ namespace core {
 		static void createRenderPass();
 		static void createImageViews();
 		static void createCommandPool();
+		static void createFramebuffers();
+		static void createCommandBuffers();
+		static void createSyncObjects();
+
+		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh);
+		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex);
 
 		static bool isDeviceSuitable(VkPhysicalDevice device);
 		static QueueFamilyIndices queryQueueFamilies(VkPhysicalDevice device);

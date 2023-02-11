@@ -26,7 +26,7 @@ namespace core {
 		VkPushConstantRange pushConstant;
 		pushConstant.offset = 0;
 		pushConstant.size = sizeof(StandardPushConstant);
-		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
 		// Pipeline layout creation.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};

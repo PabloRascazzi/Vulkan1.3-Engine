@@ -1,10 +1,15 @@
 #include <engine_context.h>
 #include <time.h>
+#include <pipeline/standard_pipeline.h>
 
 #include <vulkan/vulkan.hpp>
-
 #define VMA_IMPLEMENTATION
 #include "vma/vk_mem_alloc.h"
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include <iostream>
 #include <vector>
@@ -41,6 +46,14 @@ namespace core {
     std::vector<vk::ImageView> EngineContext::swapChainImageViews;
     vk::Format EngineContext::swapChainImageFormat;
     vk::Extent2D EngineContext::swapChainExtent;
+    std::vector<vk::Framebuffer> EngineContext::swapChainFramebuffers;
+
+    std::vector<vk::CommandBuffer> EngineContext::commandBuffers;
+	std::vector<vk::Semaphore> EngineContext::imageAvailableSemaphores;
+	std::vector<vk::Semaphore> EngineContext::renderFinishedSemaphores;
+	std::vector<vk::Fence> EngineContext::inFlightFences;
+
+    uint32_t currentFrame = 0;
 
     void EngineContext::setup() {
         try {
@@ -57,6 +70,9 @@ namespace core {
             createSwapChain();
             createImageViews();
             createRenderPass();
+            createFramebuffers();
+            createCommandBuffers();
+            createSyncObjects();
         }
         catch (const std::runtime_error& e) {
             std::cout << e.what() << std::endl;
@@ -76,6 +92,14 @@ namespace core {
 
     void EngineContext::cleanup() {
         // Destroy all vulkan objects
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            device.destroySemaphore(imageAvailableSemaphores[i]);
+            device.destroySemaphore(renderFinishedSemaphores[i]);
+            device.destroyFence(inFlightFences[i]);
+        }
+        for (auto framebuffer : swapChainFramebuffers) {
+            device.destroyFramebuffer(framebuffer);
+        }
         device.destroyRenderPass(renderPass);
         for (auto imageView : swapChainImageViews) {
             device.destroyImageView(imageView);
@@ -518,6 +542,180 @@ namespace core {
             throw std::runtime_error("Could not create command pool.");
         }
         EngineContext::commandPool = commandPool;
+    }
+
+    void EngineContext::createFramebuffers() {
+        swapChainFramebuffers.resize(swapChainImageViews.size());
+
+        for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+            VkImageView attachments[] = {swapChainImageViews[i]};
+
+            VkFramebufferCreateInfo framebufferInfo{};
+            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            framebufferInfo.renderPass = renderPass;
+            framebufferInfo.attachmentCount = 1;
+            framebufferInfo.pAttachments = attachments;
+            framebufferInfo.width = swapChainExtent.width;
+            framebufferInfo.height = swapChainExtent.height;
+            framebufferInfo.layers = 1;
+
+            VkFramebuffer framebuffer;
+            if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffer) != VK_SUCCESS) {
+                throw std::runtime_error("Could not create framebuffer.");
+            }
+            swapChainFramebuffers[i] = framebuffer;
+        }
+    }
+
+    void EngineContext::createCommandBuffers() {
+        commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = commandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+
+        if (vkAllocateCommandBuffers(device, &allocInfo, (VkCommandBuffer*)commandBuffers.data()) != VK_SUCCESS) {
+            throw std::runtime_error("Could not allocate command buffers.");
+        }
+    }
+
+    void EngineContext::createSyncObjects() {
+        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
+        VkSemaphoreCreateInfo semaphoreInfo{};
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        
+        VkFenceCreateInfo fenceInfo{};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Start fence in signaled state.
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, (VkSemaphore*)&imageAvailableSemaphores[i]) != VK_SUCCESS ||
+                vkCreateSemaphore(device, &semaphoreInfo, nullptr, (VkSemaphore*)&renderFinishedSemaphores[i]) != VK_SUCCESS ||
+                vkCreateFence(device, &fenceInfo, nullptr, (VkFence*)&inFlightFences[i]) != VK_SUCCESS) {
+                throw std::runtime_error("Could not create sync objects.");
+            }
+        }
+    }
+
+    void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh) {
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Could not begin recording command buffer.");
+        }
+
+        // Begin render pass
+        VkRenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassInfo.renderPass = renderPass;
+        renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+        renderPassInfo.renderArea.offset = {0,0};
+        renderPassInfo.renderArea.extent = swapChainExtent;
+        VkClearValue clearColor = {{{0.1f, 0.1f, 0.1f, 1.0f}}};
+        renderPassInfo.clearValueCount = 1;
+        renderPassInfo.pClearValues = &clearColor;
+
+        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        // Bind pipeline
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getHandle());
+
+        // Set Viewport and Scissor
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(swapChainExtent.width);
+        viewport.height = static_cast<float>(swapChainExtent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.offset = {0,0};
+        scissor.extent = swapChainExtent;
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+        // Bind vertex buffer
+        VkBuffer vertexBuffers[] = {mesh.getVertexBuffer()};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        // Bind index buffer
+        vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+        // TODO REMOVE - push constants test
+        static auto startTime = std::chrono::high_resolution_clock::now();
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        StandardPushConstant constant;
+        constant.world = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        constant.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        constant.proj = glm::perspective(glm::radians(70.0f), (window.getWidth() / (float)window.getHeight()), 0.1f, 200.0f);
+        constant.proj[1][1] *= -1;
+
+        // Upload push constants
+        vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
+
+        // Draw
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.getIndexCount()), 1, 0, 0, 0);
+
+        // End render pass
+        vkCmdEndRenderPass(commandBuffer);
+
+        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to record command buffer.");
+        }
+    }
+
+    void EngineContext::rasterize(Pipeline& pipeline, Mesh& mesh) {
+        // Wait until previous frame has finished.
+        device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+        device.resetFences(1, &inFlightFences[currentFrame]);
+
+        // Acquire next image from swap chain.
+        uint32_t imageIndex;
+        device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        // Record command buffer.
+        commandBuffers[currentFrame].reset();
+        recordRasterizeCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline, mesh);
+
+        // Submit command buffer.
+        vk::SubmitInfo submitInfo{};
+        vk::Semaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = waitSemaphores;
+        vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
+        submitInfo.pWaitDstStageMask = waitStages;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+        vk::Semaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = signalSemaphores;
+
+        if (graphicsQueue.submit(1, (vk::SubmitInfo*)&submitInfo, inFlightFences[currentFrame]) != vk::Result::eSuccess) {
+            throw std::runtime_error("Failed to submit draw command buffer.");
+        }
+
+        // Presentation.
+        vk::PresentInfoKHR presentInfo{};
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = signalSemaphores;
+        vk::SwapchainKHR swapChains[] = {swapChain};
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &imageIndex;
+        presentInfo.pResults = nullptr;
+
+        presentQueue.presentKHR(&presentInfo);
+
+        // Set next frame index.
+        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
     void EngineContext::exit() {
