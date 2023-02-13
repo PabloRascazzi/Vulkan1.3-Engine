@@ -37,6 +37,10 @@ namespace core {
     vk::Queue EngineContext::graphicsQueue = VK_NULL_HANDLE;
     vk::Queue EngineContext::presentQueue = VK_NULL_HANDLE;
 
+    vk::PhysicalDeviceProperties EngineContext::deviceProperties;
+	vk::PhysicalDeviceRayTracingPipelinePropertiesKHR EngineContext::rtProperties;
+	vk::PhysicalDeviceAccelerationStructurePropertiesKHR EngineContext::asProperties;
+
     vk::CommandPool EngineContext::commandPool;
     VmaAllocator EngineContext::allocator;
 
@@ -207,6 +211,24 @@ namespace core {
             throw std::runtime_error("Could not find GPU with suitable properties.");
         }
         EngineContext::physicalDevice = physicalDevice;
+
+        // Fetch all properties.
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelProperties{};
+        accelProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+        accelProperties.pNext = nullptr;
+
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytracingProperties{};
+        raytracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+        raytracingProperties.pNext = &accelProperties;
+
+        VkPhysicalDeviceProperties2 deviceProperties{};
+        deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        deviceProperties.pNext = &raytracingProperties;
+
+        vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
+        EngineContext::deviceProperties = deviceProperties.properties;
+        EngineContext::rtProperties = raytracingProperties;
+        EngineContext::asProperties = accelProperties;
     }
 
     void EngineContext::createLogicalDevice() {

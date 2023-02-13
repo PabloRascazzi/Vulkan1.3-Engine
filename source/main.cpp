@@ -27,6 +27,12 @@ int main() {
     std::cout << "Graphics Queue: " << EngineContext::getGraphicsQueue() << std::endl;
     std::cout << "Present Queue:  " << EngineContext::getPresentQueue()  << std::endl;
 
+    // Print Device Properties.
+    std::cout << "Max Push Constant Size: " << EngineContext::getDeviceProperties().limits.maxPushConstantsSize << std::endl;
+    std::cout << "Max Recursion Depth: " << EngineContext::getRayTracingProperties().maxRayRecursionDepth << std::endl;
+    std::cout << "Max Geometry Count: " << EngineContext::getAccelerationStructureProperties().maxGeometryCount << std::endl;
+    std::cout << "Max Instance Count: " << EngineContext::getAccelerationStructureProperties().maxInstanceCount << std::endl;
+
     // Create Mesh.
     const std::vector<Vertex> vertices = {
 	    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},

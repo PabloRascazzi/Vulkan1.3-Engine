@@ -67,6 +67,11 @@ namespace core {
 		static vk::Queue getGraphicsQueue() { return graphicsQueue; }
 		static vk::Queue getPresentQueue() { return presentQueue; }
 
+		static vk::PhysicalDeviceProperties getDeviceProperties() { return deviceProperties; }
+		static vk::PhysicalDeviceRayTracingPipelinePropertiesKHR getRayTracingProperties() { return rtProperties; }
+		static vk::PhysicalDeviceAccelerationStructurePropertiesKHR getAccelerationStructureProperties() { return asProperties; }
+
+
 		static vk::RenderPass getRenderPass() { return renderPass; }
 		static vk::SwapchainKHR getSwapChain() { return swapChain; }
 		static std::vector<vk::Image> getSwapChainImages() { return swapChainImages; }
@@ -92,6 +97,10 @@ namespace core {
 		static vk::Device device;
 		static vk::Queue graphicsQueue;
 		static vk::Queue presentQueue;
+
+		static vk::PhysicalDeviceProperties deviceProperties;
+		static vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties;
+		static vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProperties;
 
 		static vk::CommandPool commandPool;
 		static VmaAllocator allocator;
