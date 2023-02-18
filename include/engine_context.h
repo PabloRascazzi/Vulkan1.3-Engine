@@ -71,12 +71,13 @@ namespace core {
 		static vk::PhysicalDeviceRayTracingPipelinePropertiesKHR getRayTracingProperties() { return rtProperties; }
 		static vk::PhysicalDeviceAccelerationStructurePropertiesKHR getAccelerationStructureProperties() { return asProperties; }
 
-
 		static vk::RenderPass getRenderPass() { return renderPass; }
 		static vk::SwapchainKHR getSwapChain() { return swapChain; }
 		static std::vector<vk::Image> getSwapChainImages() { return swapChainImages; }
 		static vk::Format getSwapChainImageFormat() { return swapChainImageFormat; }
 		static vk::Extent2D getSwapChainExtent() { return swapChainExtent; }
+
+		static void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
 
 		static void exit();
 
@@ -84,6 +85,7 @@ namespace core {
 		static void mapBufferData(VmaAllocation& alloc, size_t size, void* data);
 		static void copyBufferData(VkBuffer& srcAlloc, VkBuffer& dstAlloc, size_t size);
 		static void destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc);
+		static VkDeviceAddress getBufferDeviceAddress(const VkBuffer& buffer);
 
 	private:
 		static Window window;
@@ -131,7 +133,7 @@ namespace core {
 		static void createImageViews();
 		static void createCommandPool();
 		static void createFramebuffers();
-		static void createCommandBuffers();
+		static void createFrameCommandBuffers();
 		static void createSyncObjects();
 
 		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh);

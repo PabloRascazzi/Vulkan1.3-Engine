@@ -31,6 +31,12 @@ namespace core {
 		}
 	};
 
+	struct BottomLevelAccelerationStructure {
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VmaAllocation alloc = VK_NULL_HANDLE;
+		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
+	};
+
 	class Mesh {
 	public:
 		Mesh(float* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount);
@@ -42,6 +48,7 @@ namespace core {
 		VkBuffer getIndexBuffer() { return indexBuffer; }
 		uint32_t getVertexCount() { return vertexCount; }
 		uint32_t getIndexCount() { return indexCount; }
+		BottomLevelAccelerationStructure& getBLAS() { return blas; }
 
 	private:
 		uint32_t vertexCount;
@@ -51,6 +58,7 @@ namespace core {
 		VmaAllocation vertexAlloc;
 		VkBuffer indexBuffer;
 		VmaAllocation indexAlloc;
+		BottomLevelAccelerationStructure blas;
 
 		void createVertexBuffer(Vertex* vertices);
 		void createIndexBuffer(uint32_t* indices);

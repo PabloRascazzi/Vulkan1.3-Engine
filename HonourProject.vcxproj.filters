@@ -31,6 +31,9 @@
     <ClCompile Include="source\vulkan_extension.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\scene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\window.h">
@@ -56,6 +59,9 @@
     </ClInclude>
     <ClInclude Include="include\pipeline\raytracing_pipeline.h">
       <Filter>Header Files\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="include\scene.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

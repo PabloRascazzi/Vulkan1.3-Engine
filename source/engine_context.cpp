@@ -75,7 +75,7 @@ namespace core {
             createImageViews();
             createRenderPass();
             createFramebuffers();
-            createCommandBuffers();
+            createFrameCommandBuffers();
             createSyncObjects();
         }
         catch (const std::runtime_error& e) {
@@ -257,9 +257,14 @@ namespace core {
         raytracingFeature.rayTracingPipeline = VK_TRUE;
         raytracingFeature.pNext = &accelFeature;
 
+        VkPhysicalDeviceBufferDeviceAddressFeatures addressFeature{};
+        addressFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+        addressFeature.bufferDeviceAddress = VK_TRUE;
+        addressFeature.pNext = &raytracingFeature;
+
         VkPhysicalDeviceFeatures2 deviceFeatures{};
         deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        deviceFeatures.pNext = &raytracingFeature;
+        deviceFeatures.pNext = &addressFeature;
 
         // Generate create info for logical device.
         VkDeviceCreateInfo deviceCreateInfo{};
@@ -380,6 +385,7 @@ namespace core {
         allocatorInfo.device = device;
         allocatorInfo.instance = instance;
         allocatorInfo.pVulkanFunctions = nullptr; // optional
+        allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
         if (vmaCreateAllocator(&allocatorInfo, &allocator) != VK_SUCCESS) {
             throw std::runtime_error("Could not create memory allocator.");
@@ -589,18 +595,21 @@ namespace core {
         }
     }
 
-    void EngineContext::createCommandBuffers() {
-        commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-
+    void EngineContext::createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount) {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.commandPool = commandPool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+        allocInfo.commandBufferCount = amount;
 
-        if (vkAllocateCommandBuffers(device, &allocInfo, (VkCommandBuffer*)commandBuffers.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Could not allocate command buffers.");
+        if (vkAllocateCommandBuffers(device, &allocInfo, buffer) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate command buffers.");
         }
+    }
+
+    void EngineContext::createFrameCommandBuffers() {
+        commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        createCommandBuffer((VkCommandBuffer*)commandBuffers.data(), MAX_FRAMES_IN_FLIGHT);
     }
 
     void EngineContext::createSyncObjects() {
@@ -811,5 +820,13 @@ namespace core {
 
     void EngineContext::destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc) {
         vmaDestroyBuffer(allocator, buffer, alloc);
+    }
+
+    VkDeviceAddress EngineContext::getBufferDeviceAddress(const VkBuffer& buffer) {
+        VkBufferDeviceAddressInfo addressInfo{};
+        addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        addressInfo.buffer = buffer;
+
+        return vkGetBufferDeviceAddress(device, &addressInfo);
     }
 }

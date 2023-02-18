@@ -17,6 +17,8 @@ namespace core {
 	void Mesh::cleanup() {
 		EngineContext::destroyBuffer(vertexBuffer, vertexAlloc);
 		EngineContext::destroyBuffer(indexBuffer, indexAlloc);
+		EngineContext::destroyBuffer(blas.buffer, blas.alloc);
+		EngineContext::getDevice().destroyAccelerationStructureKHR(blas.handle);
 	}
 
 	void Mesh::createVertexBuffer(Vertex* vertices) {
@@ -28,7 +30,7 @@ namespace core {
 		EngineContext::createBuffer(bufferSize, stageBufferUsage, stageVertexBuffer, stageVertexAlloc);
 		EngineContext::mapBufferData(stageVertexAlloc, (size_t)bufferSize, vertices);
 
-		VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 		EngineContext::createBuffer(bufferSize, bufferUsage, vertexBuffer, vertexAlloc);
 		EngineContext::copyBufferData(stageVertexBuffer, vertexBuffer, bufferSize);
 
@@ -44,7 +46,7 @@ namespace core {
 		EngineContext::createBuffer(bufferSize, stageBufferUsage, stageIndexBuffer, stageIndexAlloc);
 		EngineContext::mapBufferData(stageIndexAlloc, (size_t)bufferSize, indices);
 
-		VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 		EngineContext::createBuffer(bufferSize, bufferUsage, indexBuffer, indexAlloc);
 		EngineContext::copyBufferData(stageIndexBuffer, indexBuffer, bufferSize);
 

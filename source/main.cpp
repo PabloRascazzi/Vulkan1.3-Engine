@@ -1,6 +1,7 @@
 #include <engine_context.h>
 #include <input.h>
 #include <mesh.h>
+#include <scene.h>
 #include <pipeline/standard_pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
 
@@ -25,7 +26,7 @@ int main() {
 
     // Print queue indices.
     std::cout << "Graphics Queue: " << EngineContext::getGraphicsQueue() << std::endl;
-    std::cout << "Present Queue:  " << EngineContext::getPresentQueue()  << std::endl;
+    std::cout << "Present Queue:  " << EngineContext::getPresentQueue() << std::endl;
 
     // Print Device Properties.
     std::cout << "Max Push Constant Size: " << EngineContext::getDeviceProperties().limits.maxPushConstantsSize << std::endl;
@@ -35,16 +36,21 @@ int main() {
 
     // Create Mesh.
     const std::vector<Vertex> vertices = {
-	    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
         {{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
         {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
         {{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
     };
     const std::vector<uint32_t> indices = {
-	    0, 1, 2,
-	    2, 3, 0,
+        0, 1, 2,
+        2, 3, 0,
     };
     Mesh* mesh = new Mesh((float*)vertices.data(), vertices.size(), (uint32_t*)indices.data(), indices.size());
+
+    // Create Acceleration Structure.
+    Scene scene = Scene();
+    Object* obj = scene.addObject(mesh, glm::mat4(0), 0);
+    scene.setup();
 
     // Create Pipeline.
     StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
