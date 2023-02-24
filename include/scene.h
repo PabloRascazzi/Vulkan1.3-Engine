@@ -13,6 +13,12 @@ namespace core {
 		uint32_t shaderHitGroupOffset;
 	};
 
+	struct TopLevelAccelerationStructure {
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VmaAllocation alloc = VK_NULL_HANDLE;
+		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
+	};
+
 	class Scene {
 	public:
 		Scene();
@@ -24,8 +30,9 @@ namespace core {
 
 	private:
 		std::vector<Object> objects;
+		TopLevelAccelerationStructure tlas;
 
-		void buildAS(std::vector<Object>& objects);
+		void buildAccelerationStructure(std::vector<Object>& objects);
 
 	};
 }

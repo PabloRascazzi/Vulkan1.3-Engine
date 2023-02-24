@@ -3,6 +3,10 @@
 
 namespace core {
 
+	VkDeviceAddress BottomLevelAccelerationStructure::getDeviceAddress() {
+		return EngineContext::getBufferDeviceAddress(buffer);
+	}
+
 	Mesh::Mesh(float* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount) {
 		this->vertexCount = vertexCount;
 		this->indexCount = indexCount;

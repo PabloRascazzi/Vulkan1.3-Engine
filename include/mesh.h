@@ -35,6 +35,7 @@ namespace core {
 		VkBuffer buffer = VK_NULL_HANDLE;
 		VmaAllocation alloc = VK_NULL_HANDLE;
 		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
+		VkDeviceAddress getDeviceAddress();
 	};
 
 	class Mesh {

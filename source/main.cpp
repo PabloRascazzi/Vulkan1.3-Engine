@@ -48,9 +48,9 @@ int main() {
     Mesh* mesh = new Mesh((float*)vertices.data(), vertices.size(), (uint32_t*)indices.data(), indices.size());
 
     // Create Acceleration Structure.
-    Scene scene = Scene();
-    Object* obj = scene.addObject(mesh, glm::mat4(0), 0);
-    scene.setup();
+    Scene* scene = new Scene();
+    Object* obj = scene->addObject(mesh, glm::mat4(0), 0);
+    scene->setup();
 
     // Create Pipeline.
     StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
@@ -76,6 +76,7 @@ int main() {
     delete mesh;
     delete pipeline;
     delete RTpipeline;
+    delete scene;
     // Clean up engine.
     EngineContext::cleanup();
     Input::cleanup();
