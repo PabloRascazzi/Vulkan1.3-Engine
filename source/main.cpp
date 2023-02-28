@@ -45,7 +45,7 @@ int main() {
         0, 1, 2,
         2, 3, 0,
     };
-    Mesh* mesh = new Mesh((float*)vertices.data(), vertices.size(), (uint32_t*)indices.data(), indices.size());
+    Mesh* mesh = new Mesh((float*)vertices.data(), static_cast<uint32_t>(vertices.size()), (uint32_t*)indices.data(), static_cast<uint32_t>(indices.size()));
 
     // Create Acceleration Structure.
     Scene* scene = new Scene();
@@ -55,6 +55,9 @@ int main() {
     // Create Pipeline.
     StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
     RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice());
+
+    // Create DescriptorSets.
+    EngineContext::createDescriptorSets((Pipeline&)*RTpipeline, scene->getTLAS());
 
     // Main loop
     while (EngineContext::update()) {

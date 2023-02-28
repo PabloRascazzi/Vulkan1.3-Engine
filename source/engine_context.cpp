@@ -1,6 +1,7 @@
 #include <engine_context.h>
 #include <time.h>
 #include <pipeline/standard_pipeline.h>
+#include <pipeline/raytracing_pipeline.h>
 
 #include <vulkan/vulkan.hpp>
 #define VMA_IMPLEMENTATION
@@ -57,6 +58,9 @@ namespace core {
 	std::vector<vk::Semaphore> EngineContext::renderFinishedSemaphores;
 	std::vector<vk::Fence> EngineContext::inFlightFences;
 
+    std::vector<vk::DescriptorPool> EngineContext::descriptorPools;
+    std::vector<std::vector<vk::DescriptorSet>> EngineContext::descriptorSets;
+
     uint32_t currentFrame = 0;
 
     void EngineContext::setup() {
@@ -96,6 +100,9 @@ namespace core {
 
     void EngineContext::cleanup() {
         // Destroy all vulkan objects
+        for (auto descPools : descriptorPools) {
+            device.destroyDescriptorPool(descPools);
+        }
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             device.destroySemaphore(imageAvailableSemaphores[i]);
             device.destroySemaphore(renderFinishedSemaphores[i]);
@@ -633,6 +640,87 @@ namespace core {
         }
     }
 
+    void EngineContext::createDescriptorSets(Pipeline& pipeline, TopLevelAccelerationStructure& tlas) {
+        uint32_t descriptorSetsIndex = static_cast<uint32_t>(descriptorPools.size());
+
+        // Create Descriptor Pool.
+        VkDescriptorPoolSize tlasPoolSizeAS{};
+        tlasPoolSizeAS.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        tlasPoolSizeAS.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+        VkDescriptorPoolSize outImagePoolSize{};
+        outImagePoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        outImagePoolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+        VkDescriptorPoolSize poolSizes[] = { tlasPoolSizeAS, outImagePoolSize };
+        VkDescriptorPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolInfo.poolSizeCount = 2;
+        poolInfo.pPoolSizes = poolSizes;
+        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 2);
+
+        VkDescriptorPool descriptorPool;
+        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+            throw std::runtime_error("Could not create descriptor pool.");
+        }
+        descriptorPools.push_back(descriptorPool);
+
+        // Allocate Descriptor Sets.
+        std::vector<VkDescriptorSetLayout> setLayouts(MAX_FRAMES_IN_FLIGHT, ((RayTracingPipeline*)&pipeline)->getDescriptorSetLayout());
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = descriptorPools[descriptorSetsIndex];
+        allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        allocInfo.pSetLayouts = setLayouts.data();
+
+        std::vector<vk::DescriptorSet> descSets(static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+        if (vkAllocateDescriptorSets(device, &allocInfo, (VkDescriptorSet*)descSets.data()) != VK_SUCCESS) {
+            throw std::runtime_error("Could not allocate descriptor sets.");
+        }
+        descriptorSets.push_back(descSets);
+
+        ((RayTracingPipeline*)&pipeline)->setDescriptorSetsIndex(descriptorSetsIndex);
+
+        std::vector<VkWriteDescriptorSet> writeSets;
+        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            VkDescriptorSet dstSet = descriptorSets[descriptorSetsIndex][i];
+
+            // TLAS Write Descriptor Set.
+            VkWriteDescriptorSetAccelerationStructureKHR tlasDescriptorInfo{};
+            tlasDescriptorInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+            tlasDescriptorInfo.accelerationStructureCount = 1;
+            tlasDescriptorInfo.pAccelerationStructures = &tlas.handle;
+
+            VkWriteDescriptorSet tlasWriteSet{};
+            tlasWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            tlasWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+            tlasWriteSet.descriptorCount = 1;
+            tlasWriteSet.dstBinding = 0;
+            tlasWriteSet.dstSet = dstSet;
+            tlasWriteSet.pNext = &tlasDescriptorInfo;
+
+            writeSets.push_back(tlasWriteSet);
+
+            // Out Image Write Descriptor Set.
+            VkDescriptorImageInfo outImageDescriptorInfo{};
+            outImageDescriptorInfo.sampler = {};
+            outImageDescriptorInfo.imageView = swapChainImageViews[i]; // TODO - get image view linked to an image that has correct usage flags.
+            outImageDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+            VkWriteDescriptorSet outImageWriteSet{};
+            outImageWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            outImageWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            outImageWriteSet.descriptorCount = 1;
+            outImageWriteSet.dstBinding = 1;
+            outImageWriteSet.dstSet = dstSet;
+            outImageWriteSet.pImageInfo = &outImageDescriptorInfo;
+
+            writeSets.push_back(outImageWriteSet);
+        }
+
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);
+    }
+
     void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -748,6 +836,19 @@ namespace core {
         // Set next frame index.
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
+
+    //void EngineContext::raytrace(RayTracingPipeline& pipeline, TopLevelAccelerationStructure& tlas) {
+    //    // Wait until previous frame has finished.
+    //    device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    //    device.resetFences(1, &inFlightFences[currentFrame]);
+
+    //    // Acquire next image from swap chain.
+    //    uint32_t imageIndex;
+    //    device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+    //    // Update Descriptor Sets;
+    //    updateDescriptorSets(pipeline, tlas, imageIndex);
+    //}
 
     void EngineContext::exit() {
         window.quit();

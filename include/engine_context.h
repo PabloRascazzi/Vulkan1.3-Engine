@@ -16,6 +16,7 @@
 #include <window.h>
 #include <pipeline/pipeline.h>
 #include <mesh.h>
+#include <scene.h>
 
 #include <string>
 #include <vector>
@@ -56,7 +57,7 @@ namespace core {
 		static void cleanup();
 
 		static void rasterize(Pipeline& pipeline, Mesh& mesh);
-		static void raytrace(Pipeline& pipeline);
+		static void raytrace(Pipeline& pipeline, TopLevelAccelerationStructure& tlas);
 
 		static Window* getWindow() { return &window; }
 		static vk::Instance getInstance() { return instance; }
@@ -78,6 +79,7 @@ namespace core {
 		static vk::Extent2D getSwapChainExtent() { return swapChainExtent; }
 
 		static void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
+		static void createDescriptorSets(Pipeline& pipeline, TopLevelAccelerationStructure& tlas);
 
 		static void exit();
 
@@ -119,6 +121,9 @@ namespace core {
 		static std::vector<vk::Semaphore> imageAvailableSemaphores;
 		static std::vector<vk::Semaphore> renderFinishedSemaphores;
 		static std::vector<vk::Fence> inFlightFences;
+
+		static std::vector<vk::DescriptorPool> descriptorPools;
+		static std::vector<std::vector<vk::DescriptorSet>> descriptorSets;
 
 		static void setupInstanceExtensions();
 		static void setupValidationLayers();
