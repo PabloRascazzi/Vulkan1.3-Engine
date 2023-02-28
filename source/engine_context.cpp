@@ -837,18 +837,63 @@ namespace core {
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
-    //void EngineContext::raytrace(RayTracingPipeline& pipeline, TopLevelAccelerationStructure& tlas) {
-    //    // Wait until previous frame has finished.
-    //    device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-    //    device.resetFences(1, &inFlightFences[currentFrame]);
+    void EngineContext::recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline) {
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    //    // Acquire next image from swap chain.
-    //    uint32_t imageIndex;
-    //    device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Could not begin recording command buffer.");
+        }
 
-    //    // Update Descriptor Sets;
-    //    updateDescriptorSets(pipeline, tlas, imageIndex);
-    //}
+        // Bind pipeline.
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getHandle());
+        
+        // Bind descriptor sets.
+        VkDescriptorSet descSets[] = { descriptorSets[0][imageIndex] };
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getLayout(), 0, 1, descSets, 0, nullptr);
+        
+        // Upload push constants.
+        RayTracingPushConstant constant;
+        constant.clearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
+        vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
+
+        // Draw ray-traced.
+        // TODO - vkCmdTraceRaysKHR(commandBuffer, );
+    }
+
+    void EngineContext::raytrace(Pipeline& pipeline, TopLevelAccelerationStructure& tlas) {
+        // Wait until previous frame has finished.
+        device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+        device.resetFences(1, &inFlightFences[currentFrame]);
+
+        // Acquire next image from swap chain.
+        uint32_t imageIndex;
+        device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        // Record command buffer.
+        commandBuffers[currentFrame].reset();
+        recordRaytraceCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline);
+
+        // Submit command buffer.
+        VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = waitSemaphores;
+        submitInfo.pWaitDstStageMask = waitStages;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = (VkCommandBuffer*)&commandBuffers[currentFrame];
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = signalSemaphores;
+
+        // TODO - present output image.
+
+        // Set next frame index.
+        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
 
     void EngineContext::exit() {
         window.quit();

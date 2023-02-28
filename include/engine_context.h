@@ -142,7 +142,7 @@ namespace core {
 		static void createSyncObjects();
 
 		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh);
-		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex);
+		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline);
 
 		static bool isDeviceSuitable(VkPhysicalDevice device);
 		static QueueFamilyIndices queryQueueFamilies(VkPhysicalDevice device);
