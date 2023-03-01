@@ -9,6 +9,7 @@ namespace core {
 		createDescriptorSetLayout();
 		createPipelineLayout();
 		createPipeline();
+		createShaderBindingTable();
 	}
 
 	RayTracingPipeline::~RayTracingPipeline() {
@@ -16,6 +17,7 @@ namespace core {
 	}
 
 	void RayTracingPipeline::cleanup() {
+		EngineContext::destroyBuffer(sbt.buffer, sbt.alloc);
 		device.destroyPipeline(pipeline);
 		device.destroyPipelineLayout(layout);
 		device.destroyDescriptorSetLayout(descriptorSetLayout);
@@ -50,7 +52,7 @@ namespace core {
 		VkPushConstantRange pushConstant;
 		pushConstant.offset = 0;
 		pushConstant.size = sizeof(RayTracingPushConstant);
-		pushConstant.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+		pushConstant.stageFlags = RayTracingPushConstant::getShaderStageFlags();
 
 		// Pipeline layout creation.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -136,5 +138,57 @@ namespace core {
 		device.destroyShaderModule(genShaderStageInfo.module);
 		device.destroyShaderModule(missShaderStageInfo.module);
 		device.destroyShaderModule(chitShaderStageInfo.module);
+	}
+
+	void RayTracingPipeline::createShaderBindingTable() {
+		uint32_t missCount = 1;
+		uint32_t hitCount = 1;
+		uint32_t handleCount = 1 + missCount + hitCount;
+		uint32_t handleSize = EngineContext::getRayTracingProperties().shaderGroupHandleSize;
+
+		// Align all group handles.
+		uint32_t handleSizeAligned = alignUp(handleSize, EngineContext::getRayTracingProperties().shaderGroupHandleAlignment);
+		sbt.rgenRegion.stride = alignUp(handleSizeAligned, EngineContext::getRayTracingProperties().shaderGroupBaseAlignment);
+		sbt.rgenRegion.size = sbt.rgenRegion.stride; // Ray generation size must be equal to ray generation stride.
+		sbt.missRegion.stride = handleSizeAligned;
+		sbt.missRegion.size = alignUp(missCount * handleSizeAligned, EngineContext::getRayTracingProperties().shaderGroupBaseAlignment);
+		sbt.hitRegion.stride = handleSizeAligned;
+		sbt.hitRegion.size = alignUp(hitCount * handleSizeAligned, EngineContext::getRayTracingProperties().shaderGroupBaseAlignment);
+
+		// Get the shader group handles.
+		uint32_t dataSize = handleCount * handleSize;
+		std::vector<uint8_t> handles(dataSize);
+		if (vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, handleCount, dataSize, handles.data()) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to get shader group handles.");
+		}
+
+		// Create SBT buffer.
+		VkDeviceSize sbtSize = sbt.rgenRegion.size + sbt.missRegion.size + sbt.hitRegion.size + sbt.callRegion.size;
+		VkBufferUsageFlags stbBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+		EngineContext::createBuffer(sbtSize, stbBufferUsage, sbt.buffer, sbt.alloc);
+		
+		// Find the SBT addresses of each group.
+		VkDeviceAddress sbtAddress = EngineContext::getBufferDeviceAddress(sbt.buffer);
+		sbt.rgenRegion.deviceAddress = sbtAddress;
+		sbt.missRegion.deviceAddress = sbtAddress + sbt.rgenRegion.size;
+		sbt.hitRegion.deviceAddress  = sbtAddress + sbt.rgenRegion.size + sbt.missRegion.size;
+
+		// Helper to retrieve the handle data
+		auto getHandle = [&] (int i) { return handles.data() + i * handleSize; };
+
+		// Map SBT buffer with SBT handles.
+		uint32_t handleIndex = 0; 
+		size_t offset = 0;
+		EngineContext::mapBufferData(sbt.alloc, handleSize, getHandle(handleIndex++), offset); // Raygen
+		offset += sbt.rgenRegion.size;
+		for (uint32_t i = 0; i < missCount; i++) {
+			EngineContext::mapBufferData(sbt.alloc, handleSize, getHandle(handleIndex++), offset); // Miss
+			offset += sbt.missRegion.stride;
+		}
+		offset = 0 + sbt.rgenRegion.size + sbt.missRegion.size;
+		for (uint32_t i = 0; i < hitCount; i++) {
+			EngineContext::mapBufferData(sbt.alloc, handleSize, getHandle(handleIndex++), offset+=sbt.rgenRegion.size); // Hit
+			offset += sbt.hitRegion.stride;
+		}
 	}
 }

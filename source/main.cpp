@@ -66,7 +66,8 @@ int main() {
         }
 
         // Update and render game here
-        EngineContext::rasterize((Pipeline&)*pipeline, *mesh);
+        //EngineContext::rasterize((Pipeline&)*pipeline, *mesh);
+        EngineContext::raytrace((Pipeline&)*RTpipeline, *scene);
 
         // Reset Inputs.
         Input::reset();

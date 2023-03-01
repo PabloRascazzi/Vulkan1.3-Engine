@@ -60,6 +60,7 @@ namespace core {
 
     std::vector<vk::DescriptorPool> EngineContext::descriptorPools;
     std::vector<std::vector<vk::DescriptorSet>> EngineContext::descriptorSets;
+    std::vector<Image> EngineContext::outImages;
 
     uint32_t currentFrame = 0;
 
@@ -100,6 +101,9 @@ namespace core {
 
     void EngineContext::cleanup() {
         // Destroy all vulkan objects
+        for (auto outImage : outImages) {
+            EngineContext::destroyImage(outImage);
+        }
         for (auto descPools : descriptorPools) {
             device.destroyDescriptorPool(descPools);
         }
@@ -681,9 +685,36 @@ namespace core {
 
         ((RayTracingPipeline*)&pipeline)->setDescriptorSetsIndex(descriptorSetsIndex);
 
+        // Write out image to descriptor sets.
+        outImages.resize(MAX_FRAMES_IN_FLIGHT);
         std::vector<VkWriteDescriptorSet> writeSets;
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             VkDescriptorSet dstSet = descriptorSets[descriptorSetsIndex][i];
+            
+            // Create out images.
+            VkImage image;
+            VmaAllocation imageAlloc;
+            EngineContext::createImage2D(swapChainExtent, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, image, imageAlloc);
+
+            VkImageViewCreateInfo imageViewInfo{};
+            imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            imageViewInfo.image = image;
+            imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            imageViewInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+            imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            imageViewInfo.subresourceRange.baseMipLevel = 0;
+            imageViewInfo.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+            imageViewInfo.subresourceRange.baseArrayLayer = 0;
+            imageViewInfo.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+            VkImageView imageView;
+            if(vkCreateImageView(device, &imageViewInfo, nullptr, &imageView) != VK_SUCCESS) {
+                throw std::runtime_error("Failed to create image view.");
+            }
+
+            outImages[i].image = image;
+            outImages[i].view = imageView;
+            outImages[i].allocation = imageAlloc;
 
             // TLAS Write Descriptor Set.
             VkWriteDescriptorSetAccelerationStructureKHR tlasDescriptorInfo{};
@@ -704,7 +735,7 @@ namespace core {
             // Out Image Write Descriptor Set.
             VkDescriptorImageInfo outImageDescriptorInfo{};
             outImageDescriptorInfo.sampler = {};
-            outImageDescriptorInfo.imageView = swapChainImageViews[i]; // TODO - get image view linked to an image that has correct usage flags.
+            outImageDescriptorInfo.imageView = imageView;
             outImageDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
             VkWriteDescriptorSet outImageWriteSet{};
@@ -818,7 +849,7 @@ namespace core {
         submitInfo.pSignalSemaphores = signalSemaphores;
 
         if (graphicsQueue.submit(1, (vk::SubmitInfo*)&submitInfo, inFlightFences[currentFrame]) != vk::Result::eSuccess) {
-            throw std::runtime_error("Failed to submit draw command buffer.");
+            throw std::runtime_error("Failed to submit draw rasterized command buffer.");
         }
 
         // Presentation.
@@ -854,21 +885,29 @@ namespace core {
         
         // Upload push constants.
         RayTracingPushConstant constant;
-        constant.clearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
-        vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
+        constant.clearColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+        vkCmdPushConstants(commandBuffer, pipeline.getLayout(), constant.getShaderStageFlags(), 0, constant.getSize(), &constant);
 
         // Draw ray-traced.
-        // TODO - vkCmdTraceRaysKHR(commandBuffer, );
+        SBTWrapper sbt = ((RayTracingPipeline*)&pipeline)->getSBT();
+        uint32_t width = swapChainExtent.width;
+        uint32_t height = swapChainExtent.height;
+        vkCmdTraceRaysKHR(commandBuffer, &sbt.rgenRegion, &sbt.missRegion, &sbt.hitRegion, &sbt.callRegion, width, height, 1);
+
+        // End command buffer.
+        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to record command buffer.");
+        }
     }
 
-    void EngineContext::raytrace(Pipeline& pipeline, TopLevelAccelerationStructure& tlas) {
+    void EngineContext::raytrace(Pipeline& pipeline, Scene& scene) {
         // Wait until previous frame has finished.
         device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         device.resetFences(1, &inFlightFences[currentFrame]);
 
         // Acquire next image from swap chain.
         uint32_t imageIndex;
-        device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+        vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
         // Record command buffer.
         commandBuffers[currentFrame].reset();
@@ -876,7 +915,7 @@ namespace core {
 
         // Submit command buffer.
         VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR };
         VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
 
         VkSubmitInfo submitInfo{};
@@ -889,7 +928,23 @@ namespace core {
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        // TODO - present output image.
+        if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to submit draw ray-traced command buffer.");
+        }
+
+        // Presentation.
+        VkSwapchainKHR swapChains[] = { swapChain };
+
+        VkPresentInfoKHR presentInfo{};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = signalSemaphores;
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &imageIndex;
+        presentInfo.pResults = nullptr;
+
+        vkQueuePresentKHR(presentQueue, &presentInfo);
 
         // Set next frame index.
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -920,10 +975,32 @@ namespace core {
         }
     }
 
-    void EngineContext::mapBufferData(VmaAllocation& alloc, size_t size, void* data) {
-        void* location;
-        vmaMapMemory(allocator, alloc, &location);
-        memcpy(location, data, size);
+    void EngineContext::createImage2D(VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& alloc) {
+        VkImageCreateInfo imageInfo{};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.format = format;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.extent.width = extent.width;
+        imageInfo.extent.height = extent.height;
+        imageInfo.extent.depth = 1;
+        imageInfo.usage = usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        
+        VmaAllocationCreateInfo imageAllocInfo{};
+        imageAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        imageAllocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+        if (vmaCreateImage(allocator, &imageInfo, &imageAllocInfo, &image, &alloc, nullptr) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create image.");
+        }
+    }
+
+    void EngineContext::mapBufferData(VmaAllocation& alloc, size_t size, void* data, VkDeviceSize offset) {
+        VkDeviceSize* location;
+        vmaMapMemory(allocator, alloc, (void**)&location);
+        memcpy(location+offset, data, size);
         vmaUnmapMemory(allocator, alloc);
     }
 
@@ -966,6 +1043,11 @@ namespace core {
 
     void EngineContext::destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc) {
         vmaDestroyBuffer(allocator, buffer, alloc);
+    }
+
+    void EngineContext::destroyImage(Image& image) {
+        vmaDestroyImage(allocator, image.image, image.allocation);
+        device.destroyImageView(image.view);
     }
 
     VkDeviceAddress EngineContext::getBufferDeviceAddress(const VkBuffer& buffer) {

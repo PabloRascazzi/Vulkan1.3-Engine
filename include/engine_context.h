@@ -50,6 +50,12 @@ namespace core {
 		}
 	};
 
+	struct Image {
+		VkImage image;
+		VkImageView view;
+		VmaAllocation allocation;
+	};
+
 	class EngineContext {
 	public:
 		static void setup();
@@ -57,7 +63,7 @@ namespace core {
 		static void cleanup();
 
 		static void rasterize(Pipeline& pipeline, Mesh& mesh);
-		static void raytrace(Pipeline& pipeline, TopLevelAccelerationStructure& tlas);
+		static void raytrace(Pipeline& pipeline, Scene& scene);
 
 		static Window* getWindow() { return &window; }
 		static vk::Instance getInstance() { return instance; }
@@ -84,9 +90,11 @@ namespace core {
 		static void exit();
 
 		static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& alloc);
-		static void mapBufferData(VmaAllocation& alloc, size_t size, void* data);
+		static void createImage2D(VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& alloc);
+		static void mapBufferData(VmaAllocation& alloc, size_t size, void* data, VkDeviceSize offset = 0);
 		static void copyBufferData(VkBuffer& srcAlloc, VkBuffer& dstAlloc, size_t size);
 		static void destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc);
+		static void destroyImage(Image& image);
 		static VkDeviceAddress getBufferDeviceAddress(const VkBuffer& buffer);
 
 	private:
@@ -124,6 +132,7 @@ namespace core {
 
 		static std::vector<vk::DescriptorPool> descriptorPools;
 		static std::vector<std::vector<vk::DescriptorSet>> descriptorSets;
+		static std::vector<Image> outImages;
 
 		static void setupInstanceExtensions();
 		static void setupValidationLayers();
