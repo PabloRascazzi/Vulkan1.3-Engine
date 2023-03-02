@@ -165,6 +165,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="source\descriptor_set.cpp" />
     <ClCompile Include="source\scene.cpp" />
     <ClCompile Include="source\engine_context.cpp" />
     <ClCompile Include="source\input.cpp" />
@@ -178,6 +179,7 @@
     <ClCompile Include="source\window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\descriptor_set.h" />
     <ClInclude Include="include\scene.h" />
     <ClInclude Include="include\engine_context.h" />
     <ClInclude Include="include\input.h" />

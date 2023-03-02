@@ -22,7 +22,7 @@ namespace core {
 	Object* Scene::addObject(Mesh* mesh, glm::mat4 transform, uint32_t shader) {
 		Object obj = {mesh, transform, shader};
 		objects.push_back(obj);
-		return &obj;
+		return &objects[objects.size()-1];
 	}
 
 	struct BlasCreateInfo {

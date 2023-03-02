@@ -997,6 +997,23 @@ namespace core {
         }
     }
 
+    void EngineContext::createImageView2D(VkImage& image, VkFormat format, VkImageView& imageView) {
+        VkImageViewCreateInfo imageViewInfo{};
+        imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        imageViewInfo.image = image;
+        imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        imageViewInfo.format = format;
+        imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageViewInfo.subresourceRange.baseMipLevel = 0;
+        imageViewInfo.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+        imageViewInfo.subresourceRange.baseArrayLayer = 0;
+        imageViewInfo.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+        if(vkCreateImageView(device, &imageViewInfo, nullptr, &imageView) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create image view.");
+        }
+    }
+
     void EngineContext::mapBufferData(VmaAllocation& alloc, size_t size, void* data, VkDeviceSize offset) {
         VkDeviceSize* location;
         vmaMapMemory(allocator, alloc, (void**)&location);

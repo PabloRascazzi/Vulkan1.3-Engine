@@ -34,6 +34,9 @@
     <ClCompile Include="source\scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\descriptor_set.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\window.h">
@@ -61,6 +64,9 @@
       <Filter>Header Files\Pipeline</Filter>
     </ClInclude>
     <ClInclude Include="include\scene.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\descriptor_set.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

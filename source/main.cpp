@@ -2,6 +2,7 @@
 #include <input.h>
 #include <mesh.h>
 #include <scene.h>
+#include <descriptor_set.h>
 #include <pipeline/standard_pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
 
@@ -52,12 +53,41 @@ int main() {
     Object* obj = scene->addObject(mesh, glm::mat4(0), 0);
     scene->setup();
 
+    // Create DescriptorSets.
+    DescriptorSet* rtDescSet = new DescriptorSet();
+    rtDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+    rtDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+    rtDescSet->create(EngineContext::getDevice());
+
     // Create Pipeline.
     StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
     RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice());
 
-    // Create DescriptorSets.
-    EngineContext::createDescriptorSets((Pipeline&)*RTpipeline, scene->getTLAS());
+    // Fill DescriptorSets and create out images for ray-tracing render pass.
+    std::vector<Image> outImages;
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        rtDescSet->setCurrentFrame(i);
+
+        Image outImage;
+        EngineContext::createImage2D(EngineContext::getSwapChainExtent(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, outImage.image, outImage.allocation);
+        EngineContext::createImageView2D(outImage.image, VK_FORMAT_R32G32B32A32_SFLOAT, outImage.view);
+        outImages.push_back(outImage);
+
+        VkWriteDescriptorSetAccelerationStructureKHR tlasDescInfo{};
+        tlasDescInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+        tlasDescInfo.accelerationStructureCount = 1;
+        tlasDescInfo.pAccelerationStructures = &scene->getTLAS().handle;
+        rtDescSet->writeAccelerationStructureKHR(0, tlasDescInfo);
+
+        VkDescriptorImageInfo imageDescInfo{};
+        imageDescInfo.sampler = outImages[i].sampler;
+        imageDescInfo.imageView = outImages[i].view;
+        imageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        rtDescSet->writeImage(1, imageDescInfo);
+
+    }
+    rtDescSet->setCurrentFrame(0);
+    rtDescSet->update();
 
     // Main loop
     while (EngineContext::update()) {

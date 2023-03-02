@@ -53,6 +53,7 @@ namespace core {
 	struct Image {
 		VkImage image;
 		VkImageView view;
+		VkSampler sampler;
 		VmaAllocation allocation;
 	};
 
@@ -91,6 +92,7 @@ namespace core {
 
 		static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& alloc);
 		static void createImage2D(VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& alloc);
+		static void createImageView2D(VkImage& image, VkFormat format, VkImageView& imageView);
 		static void mapBufferData(VmaAllocation& alloc, size_t size, void* data, VkDeviceSize offset = 0);
 		static void copyBufferData(VkBuffer& srcAlloc, VkBuffer& dstAlloc, size_t size);
 		static void destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc);
