@@ -61,7 +61,7 @@ int main() {
 
     // Create Pipeline.
     StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
-    RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice());
+    RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice(), std::vector<DescriptorSet*>{rtDescSet});
 
     // Fill DescriptorSets and create out images for ray-tracing render pass.
     std::vector<Image> outImages;
@@ -110,6 +110,9 @@ int main() {
     delete mesh;
     delete pipeline;
     delete RTpipeline;
+    for (auto image : outImages) 
+        EngineContext::destroyImage(image);
+    delete rtDescSet;
     delete scene;
     // Clean up engine.
     EngineContext::cleanup();

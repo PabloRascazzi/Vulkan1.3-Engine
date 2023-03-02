@@ -36,23 +36,18 @@ namespace core {
 	class RayTracingPipeline  : Pipeline {
 	public:
 		RayTracingPipeline(VkDevice device);
+		RayTracingPipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets);
 		~RayTracingPipeline();
 		virtual void cleanup();
 
 		std::vector<VkRayTracingShaderGroupCreateInfoKHR>& getShaderGroups() { return shaderGroups; }
-		VkDescriptorSetLayout& getDescriptorSetLayout() { return (VkDescriptorSetLayout&)descriptorSetLayout; }
 		SBTWrapper& getSBT() { return sbt; }
-		
-		uint32_t getDescriptorSetsIndex() { return this->descriptorSetsIndex; }
-		void setDescriptorSetsIndex(uint32_t index) { this->descriptorSetsIndex = index; }
 
 	private:
 		std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
-		vk::DescriptorSetLayout descriptorSetLayout;
 		uint32_t descriptorSetsIndex;
 		SBTWrapper sbt;
 
-		virtual void createDescriptorSetLayout();
 		virtual void createPipelineLayout();
 		virtual void createPipeline();
 		void createShaderBindingTable();

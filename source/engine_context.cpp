@@ -58,10 +58,6 @@ namespace core {
 	std::vector<vk::Semaphore> EngineContext::renderFinishedSemaphores;
 	std::vector<vk::Fence> EngineContext::inFlightFences;
 
-    std::vector<vk::DescriptorPool> EngineContext::descriptorPools;
-    std::vector<std::vector<vk::DescriptorSet>> EngineContext::descriptorSets;
-    std::vector<Image> EngineContext::outImages;
-
     uint32_t currentFrame = 0;
 
     void EngineContext::setup() {
@@ -101,12 +97,6 @@ namespace core {
 
     void EngineContext::cleanup() {
         // Destroy all vulkan objects
-        for (auto outImage : outImages) {
-            EngineContext::destroyImage(outImage);
-        }
-        for (auto descPools : descriptorPools) {
-            device.destroyDescriptorPool(descPools);
-        }
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             device.destroySemaphore(imageAvailableSemaphores[i]);
             device.destroySemaphore(renderFinishedSemaphores[i]);
@@ -644,114 +634,6 @@ namespace core {
         }
     }
 
-    void EngineContext::createDescriptorSets(Pipeline& pipeline, TopLevelAccelerationStructure& tlas) {
-        uint32_t descriptorSetsIndex = static_cast<uint32_t>(descriptorPools.size());
-
-        // Create Descriptor Pool.
-        VkDescriptorPoolSize tlasPoolSizeAS{};
-        tlasPoolSizeAS.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        tlasPoolSizeAS.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-        VkDescriptorPoolSize outImagePoolSize{};
-        outImagePoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        outImagePoolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-        VkDescriptorPoolSize poolSizes[] = { tlasPoolSizeAS, outImagePoolSize };
-        VkDescriptorPoolCreateInfo poolInfo{};
-        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.poolSizeCount = 2;
-        poolInfo.pPoolSizes = poolSizes;
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 2);
-
-        VkDescriptorPool descriptorPool;
-        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-            throw std::runtime_error("Could not create descriptor pool.");
-        }
-        descriptorPools.push_back(descriptorPool);
-
-        // Allocate Descriptor Sets.
-        std::vector<VkDescriptorSetLayout> setLayouts(MAX_FRAMES_IN_FLIGHT, ((RayTracingPipeline*)&pipeline)->getDescriptorSetLayout());
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = descriptorPools[descriptorSetsIndex];
-        allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        allocInfo.pSetLayouts = setLayouts.data();
-
-        std::vector<vk::DescriptorSet> descSets(static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
-        if (vkAllocateDescriptorSets(device, &allocInfo, (VkDescriptorSet*)descSets.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Could not allocate descriptor sets.");
-        }
-        descriptorSets.push_back(descSets);
-
-        ((RayTracingPipeline*)&pipeline)->setDescriptorSetsIndex(descriptorSetsIndex);
-
-        // Write out image to descriptor sets.
-        outImages.resize(MAX_FRAMES_IN_FLIGHT);
-        std::vector<VkWriteDescriptorSet> writeSets;
-        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            VkDescriptorSet dstSet = descriptorSets[descriptorSetsIndex][i];
-            
-            // Create out images.
-            VkImage image;
-            VmaAllocation imageAlloc;
-            EngineContext::createImage2D(swapChainExtent, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, image, imageAlloc);
-
-            VkImageViewCreateInfo imageViewInfo{};
-            imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            imageViewInfo.image = image;
-            imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            imageViewInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-            imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            imageViewInfo.subresourceRange.baseMipLevel = 0;
-            imageViewInfo.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-            imageViewInfo.subresourceRange.baseArrayLayer = 0;
-            imageViewInfo.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-            VkImageView imageView;
-            if(vkCreateImageView(device, &imageViewInfo, nullptr, &imageView) != VK_SUCCESS) {
-                throw std::runtime_error("Failed to create image view.");
-            }
-
-            outImages[i].image = image;
-            outImages[i].view = imageView;
-            outImages[i].allocation = imageAlloc;
-
-            // TLAS Write Descriptor Set.
-            VkWriteDescriptorSetAccelerationStructureKHR tlasDescriptorInfo{};
-            tlasDescriptorInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-            tlasDescriptorInfo.accelerationStructureCount = 1;
-            tlasDescriptorInfo.pAccelerationStructures = &tlas.handle;
-
-            VkWriteDescriptorSet tlasWriteSet{};
-            tlasWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            tlasWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-            tlasWriteSet.descriptorCount = 1;
-            tlasWriteSet.dstBinding = 0;
-            tlasWriteSet.dstSet = dstSet;
-            tlasWriteSet.pNext = &tlasDescriptorInfo;
-
-            writeSets.push_back(tlasWriteSet);
-
-            // Out Image Write Descriptor Set.
-            VkDescriptorImageInfo outImageDescriptorInfo{};
-            outImageDescriptorInfo.sampler = {};
-            outImageDescriptorInfo.imageView = imageView;
-            outImageDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-            VkWriteDescriptorSet outImageWriteSet{};
-            outImageWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            outImageWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-            outImageWriteSet.descriptorCount = 1;
-            outImageWriteSet.dstBinding = 1;
-            outImageWriteSet.dstSet = dstSet;
-            outImageWriteSet.pImageInfo = &outImageDescriptorInfo;
-
-            writeSets.push_back(outImageWriteSet);
-        }
-
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);
-    }
-
     void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -880,8 +762,8 @@ namespace core {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getHandle());
         
         // Bind descriptor sets.
-        VkDescriptorSet descSets[] = { descriptorSets[0][imageIndex] };
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getLayout(), 0, 1, descSets, 0, nullptr);
+        std::vector<VkDescriptorSet> descSets = pipeline.getDescriptorSetHandles();
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
         
         // Upload push constants.
         RayTracingPushConstant constant;

@@ -3,10 +3,10 @@
 
 namespace core {
 
-	RayTracingPipeline::RayTracingPipeline(VkDevice device) : Pipeline(device) {
+	RayTracingPipeline::RayTracingPipeline(VkDevice device) : RayTracingPipeline(device, std::vector<DescriptorSet*>()) {}
+	RayTracingPipeline::RayTracingPipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets) : Pipeline(device, descriptorSets) {
 		this->type = PipelineType::PIPELINE_TYPE_RAY_TRACING;
 		
-		createDescriptorSetLayout();
 		createPipelineLayout();
 		createPipeline();
 		createShaderBindingTable();
@@ -20,31 +20,6 @@ namespace core {
 		EngineContext::destroyBuffer(sbt.buffer, sbt.alloc);
 		device.destroyPipeline(pipeline);
 		device.destroyPipelineLayout(layout);
-		device.destroyDescriptorSetLayout(descriptorSetLayout);
-	}
-
-	void RayTracingPipeline::createDescriptorSetLayout() {
-		VkDescriptorSetLayoutBinding tlasBinding{};
-		tlasBinding.binding = 0;
-		tlasBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-		tlasBinding.descriptorCount = 1;
-		tlasBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-
-		VkDescriptorSetLayoutBinding outImageBinding{};
-		outImageBinding.binding = 1;
-		outImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		outImageBinding.descriptorCount = 1;
-		outImageBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-
-		VkDescriptorSetLayoutBinding bindings[] = { tlasBinding, outImageBinding };
-		VkDescriptorSetLayoutCreateInfo layoutInfo{};
-		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 2;
-		layoutInfo.pBindings = bindings;
-
-		if(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, (VkDescriptorSetLayout*)&descriptorSetLayout) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create descriptor set layout.");
-		}
 	}
 
 	void RayTracingPipeline::createPipelineLayout() {
@@ -54,11 +29,15 @@ namespace core {
 		pushConstant.size = sizeof(RayTracingPushConstant);
 		pushConstant.stageFlags = RayTracingPushConstant::getShaderStageFlags();
 
+		// Pipeline get all descriptor set layouts.
+		std::vector<VkDescriptorSetLayout> layouts;
+		for (auto set : descriptorSets) layouts.push_back(set->getSetLayout());
+
 		// Pipeline layout creation.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = (VkDescriptorSetLayout*)&descriptorSetLayout;
+		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+		pipelineLayoutInfo.pSetLayouts = layouts.data();
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 

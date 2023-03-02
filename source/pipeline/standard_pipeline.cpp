@@ -3,7 +3,9 @@
 
 namespace core {
 
-	StandardPipeline::StandardPipeline(VkDevice device, VkRenderPass renderPass, VkExtent2D swapChainExtent) : Pipeline(device) {
+	StandardPipeline::StandardPipeline(VkDevice device, VkRenderPass renderPass, VkExtent2D swapChainExtent) : 
+		StandardPipeline(device, std::vector<DescriptorSet*>(), renderPass, swapChainExtent) {}
+	StandardPipeline::StandardPipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets, VkRenderPass renderPass, VkExtent2D swapChainExtent) : Pipeline(device, descriptorSets) {
 		this->type = PipelineType::PIPELINE_TYPE_RASTERIZATION;
 		this->renderPass = renderPass;
 		this->swapChainExtent = swapChainExtent;

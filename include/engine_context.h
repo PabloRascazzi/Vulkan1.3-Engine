@@ -86,7 +86,6 @@ namespace core {
 		static vk::Extent2D getSwapChainExtent() { return swapChainExtent; }
 
 		static void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
-		static void createDescriptorSets(Pipeline& pipeline, TopLevelAccelerationStructure& tlas);
 
 		static void exit();
 
@@ -131,10 +130,6 @@ namespace core {
 		static std::vector<vk::Semaphore> imageAvailableSemaphores;
 		static std::vector<vk::Semaphore> renderFinishedSemaphores;
 		static std::vector<vk::Fence> inFlightFences;
-
-		static std::vector<vk::DescriptorPool> descriptorPools;
-		static std::vector<std::vector<vk::DescriptorSet>> descriptorSets;
-		static std::vector<Image> outImages;
 
 		static void setupInstanceExtensions();
 		static void setupValidationLayers();

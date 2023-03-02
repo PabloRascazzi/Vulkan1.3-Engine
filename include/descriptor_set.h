@@ -17,7 +17,7 @@ namespace core {
 
 		VkDescriptorSetLayout& getSetLayout() { return descriptorSetLayout; }
 		VkDescriptorPool& getPool() { return descriptorPool; }
-		VkDescriptorSet& getSet() { return descriptorSets[currentFrame]; }
+		VkDescriptorSet& getHandle() { return descriptorSets[currentFrame]; }
 
 		static void setCurrentFrame(uint32_t index) { currentFrame = index; }
 

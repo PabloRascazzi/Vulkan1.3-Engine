@@ -22,6 +22,7 @@ namespace core {
 	class StandardPipeline : Pipeline {
 	public:
 		StandardPipeline(VkDevice device, VkRenderPass renderPass, VkExtent2D swapChainExtent);
+		StandardPipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets, VkRenderPass renderPass, VkExtent2D swapChainExtent);
 		~StandardPipeline();
 		virtual void cleanup();
 
