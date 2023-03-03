@@ -30,6 +30,7 @@ int main() {
     std::cout << "Present Queue:  " << EngineContext::getPresentQueue() << std::endl;
 
     // Print Device Properties.
+    std::cout << "Max Bound Descriptor Sets: " << EngineContext::getDeviceProperties().limits.maxBoundDescriptorSets << std::endl;
     std::cout << "Max Push Constant Size: " << EngineContext::getDeviceProperties().limits.maxPushConstantsSize << std::endl;
     std::cout << "Max Recursion Depth: " << EngineContext::getRayTracingProperties().maxRayRecursionDepth << std::endl;
     std::cout << "Max Geometry Count: " << EngineContext::getAccelerationStructureProperties().maxGeometryCount << std::endl;
@@ -97,7 +98,7 @@ int main() {
 
         // Update and render game here
         //EngineContext::rasterize((Pipeline&)*pipeline, *mesh);
-        EngineContext::raytrace((Pipeline&)*RTpipeline, *scene);
+        EngineContext::raytrace((Pipeline&)*RTpipeline, *scene, outImages);
 
         // Reset Inputs.
         Input::reset();

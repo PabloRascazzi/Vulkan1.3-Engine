@@ -64,7 +64,7 @@ namespace core {
 		static void cleanup();
 
 		static void rasterize(Pipeline& pipeline, Mesh& mesh);
-		static void raytrace(Pipeline& pipeline, Scene& scene);
+		static void raytrace(Pipeline& pipeline, Scene& scene, std::vector<Image>& outImages);
 
 		static Window* getWindow() { return &window; }
 		static vk::Instance getInstance() { return instance; }
@@ -147,8 +147,10 @@ namespace core {
 		static void createFrameCommandBuffers();
 		static void createSyncObjects();
 
+		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
+		static void transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
 		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh);
-		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline);
+		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& pipeline, std::vector<Image>& outImages);
 
 		static bool isDeviceSuitable(VkPhysicalDevice device);
 		static QueueFamilyIndices queryQueueFamilies(VkPhysicalDevice device);

@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <vector>
+#include <string>
 
 // Removes minwindef.h max() definition which overlaps with limits.h max().
 #ifdef max 
@@ -23,6 +24,9 @@
 void load_extension_VK_KHR_acceleration_structure(VkDevice);
 void load_extension_VK_KHR_deferred_host_operations(VkDevice);
 void load_extension_VK_KHR_ray_tracing_pipeline(VkDevice);
+
+#define VK_CHECK_MSG(func, msg) if(func != VK_SUCCESS) { throw std::runtime_error(msg); }
+#define VK_CHECK(func) VK_CHECK_MSG(func, "Vulkan error detected at line " + std::to_string(__LINE__) + " .");
 
 namespace core {
 
@@ -750,7 +754,69 @@ namespace core {
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
-    void EngineContext::recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline) {
+    void EngineContext::transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout) {
+        VkCommandBuffer commandBuffer;
+        createCommandBuffer(&commandBuffer, 1);
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+        
+        transitionImageLayout(commandBuffer, image, oldLayout, newLayout);
+
+        VK_CHECK(vkEndCommandBuffer(commandBuffer));
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+        VK_CHECK(vkQueueWaitIdle(graphicsQueue));
+        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    }
+
+    void EngineContext::transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout) {
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        VkPipelineStageFlags srcStage;
+        VkPipelineStageFlags dstStage;
+
+        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            srcStage = VK_ACCESS_TRANSFER_WRITE_BIT;
+            dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        } else {
+            throw std::runtime_error("Unsupported image layout transition.");
+        }
+
+        vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
+
+    void EngineContext::recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, std::vector<Image>& outImages) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -758,20 +824,23 @@ namespace core {
             throw std::runtime_error("Could not begin recording command buffer.");
         }
 
+        // Transition image layout to general.
+        transitionImageLayout(commandBuffer, outImages[currentFrame].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
         // Bind pipeline.
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getHandle());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.getHandle());
         
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets = pipeline.getDescriptorSetHandles();
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+        std::vector<VkDescriptorSet> descSets = rtPipeline.getDescriptorSetHandles();
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
         
         // Upload push constants.
         RayTracingPushConstant constant;
         constant.clearColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-        vkCmdPushConstants(commandBuffer, pipeline.getLayout(), constant.getShaderStageFlags(), 0, constant.getSize(), &constant);
+        vkCmdPushConstants(commandBuffer, rtPipeline.getLayout(), constant.getShaderStageFlags(), 0, constant.getSize(), &constant);
 
         // Draw ray-traced.
-        SBTWrapper sbt = ((RayTracingPipeline*)&pipeline)->getSBT();
+        SBTWrapper sbt = ((RayTracingPipeline*)&rtPipeline)->getSBT();
         uint32_t width = swapChainExtent.width;
         uint32_t height = swapChainExtent.height;
         vkCmdTraceRaysKHR(commandBuffer, &sbt.rgenRegion, &sbt.missRegion, &sbt.hitRegion, &sbt.callRegion, width, height, 1);
@@ -782,51 +851,54 @@ namespace core {
         }
     }
 
-    void EngineContext::raytrace(Pipeline& pipeline, Scene& scene) {
+    void EngineContext::raytrace(Pipeline& pipeline, Scene& scene, std::vector<Image>& outImages) {
         // Wait until previous frame has finished.
-        device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-        device.resetFences(1, &inFlightFences[currentFrame]);
+        VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
+        VK_CHECK(vkResetFences(device, 1, (VkFence*)&inFlightFences[currentFrame]));
+        
+        // Set descriptor set currentFrame.
+        DescriptorSet::setCurrentFrame(currentFrame);
 
         // Acquire next image from swap chain.
-        uint32_t imageIndex;
-        vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+        //uint32_t imageIndex;
+        //vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
         // Record command buffer.
         commandBuffers[currentFrame].reset();
-        recordRaytraceCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline);
+        recordRaytraceCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], pipeline, outImages);
 
         // Submit command buffer.
-        VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR };
-        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+        //VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+        //VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR };
+        //VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = waitSemaphores;
-        submitInfo.pWaitDstStageMask = waitStages;
+        //submitInfo.waitSemaphoreCount = 1;
+        //submitInfo.pWaitSemaphores = waitSemaphores;
+        //submitInfo.pWaitDstStageMask = waitStages;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = (VkCommandBuffer*)&commandBuffers[currentFrame];
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = signalSemaphores;
+        //submitInfo.signalSemaphoreCount = 1;
+        //submitInfo.pSignalSemaphores = signalSemaphores;
 
         if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to submit draw ray-traced command buffer.");
         }
 
         // Presentation.
-        VkSwapchainKHR swapChains[] = { swapChain };
+        //VkSwapchainKHR swapChains[] = { swapChain };
 
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &imageIndex;
-        presentInfo.pResults = nullptr;
+        //VkPresentInfoKHR presentInfo{};
+        //presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        //presentInfo.waitSemaphoreCount = 1;
+        //presentInfo.pWaitSemaphores = signalSemaphores;
+        //presentInfo.swapchainCount = 1;
+        //presentInfo.pSwapchains = swapChains;
+        //presentInfo.pImageIndices = &imageIndex;
+        //presentInfo.pResults = nullptr;
 
-        vkQueuePresentKHR(presentQueue, &presentInfo);
+        //vkQueuePresentKHR(presentQueue, &presentInfo);
 
         // Set next frame index.
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -869,6 +941,7 @@ namespace core {
         imageInfo.extent.height = extent.height;
         imageInfo.extent.depth = 1;
         imageInfo.usage = usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         
         VmaAllocationCreateInfo imageAllocInfo{};
         imageAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;

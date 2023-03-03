@@ -7,6 +7,9 @@ namespace core {
 
 	class DescriptorSet {
 	public:
+		~DescriptorSet();
+		void cleanup();
+
 		void addBinding(uint32_t binding, VkDescriptorType type, uint32_t count, VkShaderStageFlags shaderStageFlags);
 		void create(VkDevice device);
 

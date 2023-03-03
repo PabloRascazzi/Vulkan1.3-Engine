@@ -5,6 +5,15 @@ namespace core {
 
 	uint32_t DescriptorSet::currentFrame = 0;
 
+	DescriptorSet::~DescriptorSet() {
+		cleanup();
+	}
+
+	void DescriptorSet::cleanup() {
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+	}
+
 	void DescriptorSet::addBinding(uint32_t binding, VkDescriptorType type, uint32_t count, VkShaderStageFlags shaderStageFlags) {
 		VkDescriptorSetLayoutBinding layoutBinding{};
 		layoutBinding.binding = binding;
