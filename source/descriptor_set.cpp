@@ -91,10 +91,10 @@ namespace core {
 		writes.push_back(bufferWrite);
 	}
 
-	void DescriptorSet::writeImage(uint32_t binding, VkDescriptorImageInfo& writeDescInfo) {
+	void DescriptorSet::writeImage(uint32_t binding, VkDescriptorImageInfo& writeDescInfo, VkDescriptorType type) {
         VkWriteDescriptorSet imageWrite{};
         imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        imageWrite.descriptorType = type;
         imageWrite.descriptorCount = 1;
         imageWrite.dstBinding = binding;
         imageWrite.dstSet = descriptorSets[currentFrame];

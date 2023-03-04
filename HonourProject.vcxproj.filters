@@ -37,6 +37,9 @@
     <ClCompile Include="source\descriptor_set.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\pipeline\post_pipeline.cpp">
+      <Filter>Source Files\Pipeline</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\window.h">
@@ -68,6 +71,9 @@
     </ClInclude>
     <ClInclude Include="include\descriptor_set.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pipeline\post_pipeline.h">
+      <Filter>Header Files\Pipeline</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -107,6 +113,12 @@
       <Filter>Resource Files\Shaders\GLSL</Filter>
     </None>
     <None Include="resource\shaders\GLSL\raytrace.rmiss">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+    <None Include="resource\shaders\GLSL\postShader.vert">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+    <None Include="resource\shaders\GLSL\postShader.frag">
       <Filter>Resource Files\Shaders\GLSL</Filter>
     </None>
   </ItemGroup>

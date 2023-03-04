@@ -1,11 +1,10 @@
-#include <pipeline/standard_pipeline.h>
-#include <mesh.h>
+#include <pipeline/post_pipeline.h>
 
 namespace core {
 
-	StandardPipeline::StandardPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent) : 
-		StandardPipeline(device, filename, std::vector<DescriptorSet*>(), renderPass, swapChainExtent) {}
-	StandardPipeline::StandardPipeline(VkDevice device, std::string filename, std::vector<DescriptorSet*> descriptorSets, VkRenderPass renderPass, VkExtent2D swapChainExtent) : Pipeline(device, descriptorSets) {
+	PostPipeline::PostPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent) : 
+		PostPipeline(device, filename, std::vector<DescriptorSet*>(), renderPass, swapChainExtent) {}
+	PostPipeline::PostPipeline(VkDevice device, std::string filename, std::vector<DescriptorSet*> descriptorSets, VkRenderPass renderPass, VkExtent2D swapChainExtent) : Pipeline(device, descriptorSets) {
 		this->type = PipelineType::PIPELINE_TYPE_RASTERIZATION;
 		this->filename = filename;
 		this->renderPass = renderPass;
@@ -15,22 +14,16 @@ namespace core {
 		createPipeline();
 	}
 
-	StandardPipeline::~StandardPipeline() { 
+	PostPipeline::~PostPipeline() { 
 		cleanup(); 
 	}
 
-	void StandardPipeline::cleanup() {
+	void PostPipeline::cleanup() {
 		device.destroyPipeline(pipeline);
 		device.destroyPipelineLayout(layout);
 	}
 
-	void StandardPipeline::createPipelineLayout() {
-		// Pipeline push constants.
-		VkPushConstantRange pushConstant;
-		pushConstant.offset = 0;
-		pushConstant.size = sizeof(StandardPushConstant);
-		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
+	void PostPipeline::createPipelineLayout() {
 		// Pipeline get all descriptor set layouts.
 		std::vector<VkDescriptorSetLayout> layouts;
 		for (auto set : descriptorSets) layouts.push_back(set->getSetLayout());
@@ -40,15 +33,15 @@ namespace core {
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
 		pipelineLayoutInfo.pSetLayouts = layouts.data();
-		pipelineLayoutInfo.pushConstantRangeCount = 1;
-		pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+		pipelineLayoutInfo.pushConstantRangeCount = 0;
+		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
 		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, (VkPipelineLayout*)&layout) != VK_SUCCESS) {
 			throw std::runtime_error("Could not create pipeline layout.");
 		}
 	}
 
-	void StandardPipeline::createPipeline() {
+	void PostPipeline::createPipeline() {
 		// Shader stage creation.
 		VkShaderModule vertShaderModule = createShaderModule("./resource/shaders/SPIR-V/"+filename+".vert.spv");
 		VkShaderModule fragShaderModule = createShaderModule("./resource/shaders/SPIR-V/"+filename+".frag.spv");
@@ -79,20 +72,17 @@ namespace core {
 		dynamicStateInfo.pDynamicStates = dynamicsStates.data();
 
 		// Vertex input state create info.
-		auto bindingDesc = Vertex::getBindingDescription();
-		auto attributeDesc = Vertex::getAttributeDescriptions();
-
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 1;
-		vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
-		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDesc.size());
-		vertexInputInfo.pVertexAttributeDescriptions = attributeDesc.data();
+		vertexInputInfo.vertexBindingDescriptionCount = 0;
+		vertexInputInfo.pVertexBindingDescriptions = nullptr;
+		vertexInputInfo.vertexAttributeDescriptionCount = 0;
+		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
 		// Input assembly state create info.
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
 		inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
 		inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
 		// Viewport and scissors state create info.

@@ -64,7 +64,7 @@ namespace core {
 		static void cleanup();
 
 		static void rasterize(Pipeline& pipeline, Mesh& mesh);
-		static void raytrace(Pipeline& pipeline, Scene& scene, std::vector<Image>& outImages);
+		static void raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene, std::vector<Image>& outImages);
 
 		static Window* getWindow() { return &window; }
 		static vk::Instance getInstance() { return instance; }
@@ -92,6 +92,7 @@ namespace core {
 		static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& alloc);
 		static void createImage2D(VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& alloc);
 		static void createImageView2D(VkImage& image, VkFormat format, VkImageView& imageView);
+		static void createSampler2D(VkSampler& sampler, VkSamplerAddressMode addressMode, bool enableAnisotropy);
 		static void mapBufferData(VmaAllocation& alloc, size_t size, void* data, VkDeviceSize offset = 0);
 		static void copyBufferData(VkBuffer& srcAlloc, VkBuffer& dstAlloc, size_t size);
 		static void destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc);
@@ -150,7 +151,7 @@ namespace core {
 		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
 		static void transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
 		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh);
-		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& pipeline, std::vector<Image>& outImages);
+		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, std::vector<Image>& outImages, uint32_t imageIndex);
 
 		static bool isDeviceSuitable(VkPhysicalDevice device);
 		static QueueFamilyIndices queryQueueFamilies(VkPhysicalDevice device);

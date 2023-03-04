@@ -5,6 +5,7 @@
 #include <descriptor_set.h>
 #include <pipeline/standard_pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
+#include <pipeline/post_pipeline.h>
 
 #include <iostream>
 #include <Vulkan/vulkan.h>
@@ -60,18 +61,24 @@ int main() {
     rtDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
     rtDescSet->create(EngineContext::getDevice());
 
+    DescriptorSet* postDescSet = new DescriptorSet();
+    postDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+    postDescSet->create(EngineContext::getDevice());
+
     // Create Pipeline.
-    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
+    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), "shader", EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
     RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice(), std::vector<DescriptorSet*>{rtDescSet});
+    PostPipeline* postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{postDescSet}, EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
 
     // Fill DescriptorSets and create out images for ray-tracing render pass.
     std::vector<Image> outImages;
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        rtDescSet->setCurrentFrame(i);
+        DescriptorSet::setCurrentFrame(i);
 
         Image outImage;
         EngineContext::createImage2D(EngineContext::getSwapChainExtent(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, outImage.image, outImage.allocation);
         EngineContext::createImageView2D(outImage.image, VK_FORMAT_R32G32B32A32_SFLOAT, outImage.view);
+        EngineContext::createSampler2D(outImage.sampler, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE);
         outImages.push_back(outImage);
 
         VkWriteDescriptorSetAccelerationStructureKHR tlasDescInfo{};
@@ -80,15 +87,22 @@ int main() {
         tlasDescInfo.pAccelerationStructures = &scene->getTLAS().handle;
         rtDescSet->writeAccelerationStructureKHR(0, tlasDescInfo);
 
-        VkDescriptorImageInfo imageDescInfo{};
-        imageDescInfo.sampler = outImages[i].sampler;
-        imageDescInfo.imageView = outImages[i].view;
-        imageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        rtDescSet->writeImage(1, imageDescInfo);
+        VkDescriptorImageInfo rtImageDescInfo{};
+        rtImageDescInfo.sampler = {};
+        rtImageDescInfo.imageView = outImages[i].view;
+        rtImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        rtDescSet->writeImage(1, rtImageDescInfo, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        
+        VkDescriptorImageInfo postImageDescInfo{};
+        postImageDescInfo.sampler = outImages[i].sampler;
+        postImageDescInfo.imageView = outImages[i].view;
+        postImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        postDescSet->writeImage(0, postImageDescInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     }
-    rtDescSet->setCurrentFrame(0);
+    DescriptorSet::setCurrentFrame(0);
     rtDescSet->update();
+    postDescSet->update();
 
     // Main loop
     while (EngineContext::update()) {
@@ -98,7 +112,7 @@ int main() {
 
         // Update and render game here
         //EngineContext::rasterize((Pipeline&)*pipeline, *mesh);
-        EngineContext::raytrace((Pipeline&)*RTpipeline, *scene, outImages);
+        EngineContext::raytrace((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene, outImages);
 
         // Reset Inputs.
         Input::reset();
@@ -111,9 +125,11 @@ int main() {
     delete mesh;
     delete pipeline;
     delete RTpipeline;
+    delete postPipeline;
     for (auto image : outImages) 
         EngineContext::destroyImage(image);
     delete rtDescSet;
+    delete postDescSet;
     delete scene;
     // Clean up engine.
     EngineContext::cleanup();

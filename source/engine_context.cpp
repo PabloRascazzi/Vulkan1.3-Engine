@@ -267,9 +267,13 @@ namespace core {
         addressFeature.bufferDeviceAddress = VK_TRUE;
         addressFeature.pNext = &raytracingFeature;
 
-        VkPhysicalDeviceFeatures2 deviceFeatures{};
-        deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        deviceFeatures.pNext = &addressFeature;
+        VkPhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.samplerAnisotropy = VK_TRUE;
+
+        VkPhysicalDeviceFeatures2 allDeviceFeatures{};
+        allDeviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        allDeviceFeatures.features = deviceFeatures;
+        allDeviceFeatures.pNext = &addressFeature;
 
         // Generate create info for logical device.
         VkDeviceCreateInfo deviceCreateInfo{};
@@ -279,7 +283,7 @@ namespace core {
         deviceCreateInfo.pEnabledFeatures = nullptr; // Must have device features ptr if pNext is nullptr else nullptr.
         deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
         deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
-        deviceCreateInfo.pNext = &deviceFeatures;
+        deviceCreateInfo.pNext = &allDeviceFeatures;
 #if defined(_DEBUG)
         deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(layers.size());
         deviceCreateInfo.ppEnabledLayerNames = layers.data();
@@ -816,7 +820,7 @@ namespace core {
         vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
 
-    void EngineContext::recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, std::vector<Image>& outImages) {
+    void EngineContext::recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, std::vector<Image>& outImages, uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -845,13 +849,54 @@ namespace core {
         uint32_t height = swapChainExtent.height;
         vkCmdTraceRaysKHR(commandBuffer, &sbt.rgenRegion, &sbt.missRegion, &sbt.hitRegion, &sbt.callRegion, width, height, 1);
 
+        // Begin render pass
+        VkRenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassInfo.renderPass = renderPass;
+        renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+        renderPassInfo.renderArea.offset = {0,0};
+        renderPassInfo.renderArea.extent = swapChainExtent;
+        VkClearValue clearColor = {{{0.1f, 0.1f, 0.1f, 1.0f}}};
+        renderPassInfo.clearValueCount = 1;
+        renderPassInfo.pClearValues = &clearColor;
+
+        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        // Bind pipeline
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline.getHandle());
+
+        // Set Viewport and Scissor
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(swapChainExtent.width);
+        viewport.height = static_cast<float>(swapChainExtent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.offset = {0,0};
+        scissor.extent = swapChainExtent;
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+        // Bind descriptor sets.
+        std::vector<VkDescriptorSet> postDescSets = postPipeline.getDescriptorSetHandles();
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline.getLayout(), 0, static_cast<uint32_t>(postDescSets.size()), postDescSets.data(), 0, nullptr);
+
+        // Draw
+        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
+
+        // End render pass
+        vkCmdEndRenderPass(commandBuffer);
+
         // End command buffer.
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("Failed to record command buffer.");
         }
     }
 
-    void EngineContext::raytrace(Pipeline& pipeline, Scene& scene, std::vector<Image>& outImages) {
+    void EngineContext::raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene, std::vector<Image>& outImages) {
         // Wait until previous frame has finished.
         VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
         VK_CHECK(vkResetFences(device, 1, (VkFence*)&inFlightFences[currentFrame]));
@@ -860,45 +905,43 @@ namespace core {
         DescriptorSet::setCurrentFrame(currentFrame);
 
         // Acquire next image from swap chain.
-        //uint32_t imageIndex;
-        //vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+        uint32_t imageIndex;
+        VK_CHECK(vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex));
 
         // Record command buffer.
         commandBuffers[currentFrame].reset();
-        recordRaytraceCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], pipeline, outImages);
+        recordRaytraceCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], rtPipeline, postPipeline, outImages, imageIndex);
 
         // Submit command buffer.
-        //VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-        //VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR };
-        //VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+        VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        //submitInfo.waitSemaphoreCount = 1;
-        //submitInfo.pWaitSemaphores = waitSemaphores;
-        //submitInfo.pWaitDstStageMask = waitStages;
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = waitSemaphores;
+        submitInfo.pWaitDstStageMask = waitStages;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = (VkCommandBuffer*)&commandBuffers[currentFrame];
-        //submitInfo.signalSemaphoreCount = 1;
-        //submitInfo.pSignalSemaphores = signalSemaphores;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = signalSemaphores;
 
-        if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to submit draw ray-traced command buffer.");
-        }
+        VK_CHECK_MSG(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit draw ray-traced command buffer.");
 
         // Presentation.
-        //VkSwapchainKHR swapChains[] = { swapChain };
+        VkSwapchainKHR swapChains[] = { swapChain };
 
-        //VkPresentInfoKHR presentInfo{};
-        //presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        //presentInfo.waitSemaphoreCount = 1;
-        //presentInfo.pWaitSemaphores = signalSemaphores;
-        //presentInfo.swapchainCount = 1;
-        //presentInfo.pSwapchains = swapChains;
-        //presentInfo.pImageIndices = &imageIndex;
-        //presentInfo.pResults = nullptr;
+        VkPresentInfoKHR presentInfo{};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = signalSemaphores;
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &imageIndex;
+        presentInfo.pResults = nullptr;
 
-        //vkQueuePresentKHR(presentQueue, &presentInfo);
+        VK_CHECK(vkQueuePresentKHR(presentQueue, &presentInfo));
 
         // Set next frame index.
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -969,6 +1012,28 @@ namespace core {
         }
     }
 
+    void EngineContext::createSampler2D(VkSampler& sampler, VkSamplerAddressMode addressMode, bool enableAnisotropy) {
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.addressModeU = addressMode;
+        samplerInfo.addressModeV = addressMode;
+        samplerInfo.addressModeW = addressMode;
+        samplerInfo.anisotropyEnable = enableAnisotropy;
+        samplerInfo.maxAnisotropy = EngineContext::getDeviceProperties().limits.maxSamplerAnisotropy;
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = 0.0f;
+
+        VK_CHECK_MSG(vkCreateSampler(device, &samplerInfo, nullptr, &sampler), "Failed to create image sampler.");
+    }
+
     void EngineContext::mapBufferData(VmaAllocation& alloc, size_t size, void* data, VkDeviceSize offset) {
         VkDeviceSize* location;
         vmaMapMemory(allocator, alloc, (void**)&location);
@@ -1020,6 +1085,7 @@ namespace core {
     void EngineContext::destroyImage(Image& image) {
         vmaDestroyImage(allocator, image.image, image.allocation);
         device.destroyImageView(image.view);
+        device.destroySampler(image.sampler);
     }
 
     VkDeviceAddress EngineContext::getBufferDeviceAddress(const VkBuffer& buffer) {

@@ -166,6 +166,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\descriptor_set.cpp" />
+    <ClCompile Include="source\pipeline\post_pipeline.cpp" />
     <ClCompile Include="source\scene.cpp" />
     <ClCompile Include="source\engine_context.cpp" />
     <ClCompile Include="source\input.cpp" />
@@ -180,6 +181,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\descriptor_set.h" />
+    <ClInclude Include="include\pipeline\post_pipeline.h" />
     <ClInclude Include="include\scene.h" />
     <ClInclude Include="include\engine_context.h" />
     <ClInclude Include="include\input.h" />
@@ -191,6 +193,8 @@
     <ClInclude Include="include\window.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="resource\shaders\GLSL\postShader.frag" />
+    <None Include="resource\shaders\GLSL\postShader.vert" />
     <None Include="resource\shaders\GLSL\raytrace.rchit" />
     <None Include="resource\shaders\GLSL\raytrace.rgen" />
     <None Include="resource\shaders\GLSL\raytrace.rmiss" />

@@ -14,7 +14,7 @@ namespace core {
 		void create(VkDevice device);
 
 		void writeBuffer(uint32_t binding, VkDescriptorBufferInfo& writeDescInfo);
-		void writeImage(uint32_t binding, VkDescriptorImageInfo& writeDescInfo);
+		void writeImage(uint32_t binding, VkDescriptorImageInfo& writeDescInfo, VkDescriptorType type);
 		void writeAccelerationStructureKHR(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR writeDescInfo);
 		void update();
 
