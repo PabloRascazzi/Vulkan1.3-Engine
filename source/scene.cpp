@@ -178,7 +178,7 @@ namespace core {
 
 	VkTransformMatrixKHR toTransformMatrixKHR(glm::mat4 matrix) {
 		VkTransformMatrixKHR out;
-		memcpy(&glm::transpose(matrix), &out, sizeof(VkTransformMatrixKHR));
+		memcpy(&out.matrix, &glm::transpose(matrix), sizeof(VkTransformMatrixKHR));
 		return out;
 	}
 
