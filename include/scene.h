@@ -7,6 +7,13 @@
 
 namespace core {
 
+	struct Camera {
+		glm::mat4 view;
+		glm::mat4 viewInverse;
+		glm::mat4 projection;
+		glm::mat4 projectionInverse;
+	};
+
 	struct Object {
 		Mesh* mesh;
 		glm::mat4 transform;

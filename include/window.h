@@ -22,6 +22,7 @@ namespace core {
 		std::string getName() { return name; }
 		long getWidth() { return width; }
 		long getHeight() { return height; }
+		float getAspectRatio() { return static_cast<float>(width) / static_cast<float>(height); }
 
 		void setKeyCallback(WindowEventCallback callback);
 		void setMouseButtonCallback(WindowEventCallback callback);

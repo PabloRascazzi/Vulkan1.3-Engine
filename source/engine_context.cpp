@@ -642,7 +642,7 @@ namespace core {
         }
     }
 
-    void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Mesh& mesh) {
+    void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Camera& camera, Object& object) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -682,27 +682,26 @@ namespace core {
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         // Bind vertex buffer
-        VkBuffer vertexBuffers[] = {mesh.getVertexBuffer()};
+        VkBuffer vertexBuffers[] = {object.mesh->getVertexBuffer()};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
         // Bind index buffer
-        vkCmdBindIndexBuffer(commandBuffer, mesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffer, object.mesh->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-        // TODO REMOVE - push constants test
-        static auto startTime = std::chrono::high_resolution_clock::now();
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         StandardPushConstant constant;
-        constant.world = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        constant.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        constant.proj = glm::perspective(glm::radians(70.0f), (window.getWidth() / (float)window.getHeight()), 0.1f, 200.0f);
-        constant.proj[1][1] *= -1;
+        constant.world = object.transform;
+        constant.view = camera.view;
+        constant.proj = camera.projection;
+        // TEST - static auto startTime = std::chrono::high_resolution_clock::now();
+        // TEST - auto currentTime = std::chrono::high_resolution_clock::now();
+        // TEST - float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        // TEST - constant.world = glm::rotate(object.transform, time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         // Upload push constants
         vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
 
         // Draw
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.getIndexCount()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(object.mesh->getIndexCount()), 1, 0, 0, 0);
 
         // End render pass
         vkCmdEndRenderPass(commandBuffer);
@@ -712,7 +711,7 @@ namespace core {
         }
     }
 
-    void EngineContext::rasterize(Pipeline& pipeline, Mesh& mesh) {
+    void EngineContext::rasterize(Pipeline& pipeline, Camera& camera, Object& object) {
         // Wait until previous frame has finished.
         device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         device.resetFences(1, &inFlightFences[currentFrame]);
@@ -723,7 +722,7 @@ namespace core {
 
         // Record command buffer.
         commandBuffers[currentFrame].reset();
-        recordRasterizeCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline, mesh);
+        recordRasterizeCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline, camera, object);
 
         // Submit command buffer.
         vk::SubmitInfo submitInfo{};
