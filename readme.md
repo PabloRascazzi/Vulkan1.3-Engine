@@ -7,3 +7,7 @@ Author: Pablo Rascazzi
 * **Build** solution in either *Debug x64* or *Release x64* configuration
 * **Add SDL2.dll** file into the generated `.\x64\Debug\` or `.\x64\Release\` directories
 * **Run** solution
+
+### Important Information
+* The project is tested on an **NVIDIA GeForce RTX 2080ti** on driver version **528.49**. 
+* The application will crash with driver version **531.18** and **531.29**.
