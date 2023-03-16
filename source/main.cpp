@@ -98,10 +98,8 @@ int main() {
 
     // Fill DescriptorSets and create out images for ray-tracing render pass.
     std::vector<Image> outImages;
-    std::vector<VkBuffer> cameraBuffers;
+    std::vector<Buffer> cameraBuffers;
     cameraBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    std::vector<VmaAllocation> cameraAllocs;
-    cameraAllocs.resize(MAX_FRAMES_IN_FLIGHT);
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         DescriptorSet::setCurrentFrame(i);
 
@@ -132,11 +130,11 @@ int main() {
         postDescSet->writeImage(0, postImageDescInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
         // Upload camera matrices uniform.
-        EngineContext::createBuffer(sizeof(CameraUniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, cameraBuffers[i], cameraAllocs[i]);
-        EngineContext::mapBufferData(cameraAllocs[i], sizeof(CameraUniformBufferObject), &cameraUBO);
+        ResourceAllocator::createBuffer(sizeof(CameraUniformBufferObject), cameraBuffers[i], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        ResourceAllocator::mapDataToBuffer(cameraBuffers[i], sizeof(CameraUniformBufferObject), &cameraUBO);
 
         VkDescriptorBufferInfo camDescInfo{};
-        camDescInfo.buffer = cameraBuffers[i];
+        camDescInfo.buffer = cameraBuffers[i].buffer;
         camDescInfo.offset = 0;
         camDescInfo.range = sizeof(CameraUniformBufferObject);
         globalDescSet->writeBuffer(0, camDescInfo);
@@ -183,8 +181,8 @@ int main() {
     delete postPipeline;
     for (auto image : outImages) 
         EngineContext::destroyImage(image);
-    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-        EngineContext::destroyBuffer(cameraBuffers[i], cameraAllocs[i]);
+    for (auto buffer : cameraBuffers)
+        ResourceAllocator::destroyBuffer(buffer);
     delete rtDescSet;
     delete postDescSet;
     delete globalDescSet;
@@ -197,7 +195,7 @@ int main() {
 }
 
 glm::mat4 getPerspective(float vertical_fov, float aspect_ratio, float n, float f) {
-    float fov_rad = vertical_fov * 2.0f * M_PI / 360.0f;
+    float fov_rad = vertical_fov * 2.0f * static_cast<float>(M_PI) / 360.0f;
     float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
 
     float x  =  focal_length / aspect_ratio;

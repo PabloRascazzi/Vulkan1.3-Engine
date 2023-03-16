@@ -3,6 +3,8 @@
 #include <Vulkan/vulkan.hpp>
 #include "vma/vk_mem_alloc.h"
 
+#include <resource_allocator.h>
+
 namespace core {
 
 	struct Vertex {
@@ -32,8 +34,7 @@ namespace core {
 	};
 
 	struct BottomLevelAccelerationStructure {
-		VkBuffer buffer = VK_NULL_HANDLE;
-		VmaAllocation alloc = VK_NULL_HANDLE;
+		Buffer buffer;
 		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
 		VkDeviceAddress getDeviceAddress();
 	};
@@ -45,8 +46,8 @@ namespace core {
 
 		void cleanup();
 
-		VkBuffer getVertexBuffer() { return vertexBuffer; }
-		VkBuffer getIndexBuffer() { return indexBuffer; }
+		Buffer& getVertexBuffer() { return vertexBuffer; }
+		Buffer& getIndexBuffer() { return indexBuffer; }
 		uint32_t getVertexCount() { return vertexCount; }
 		uint32_t getIndexCount() { return indexCount; }
 		BottomLevelAccelerationStructure& getBLAS() { return blas; }
@@ -55,10 +56,8 @@ namespace core {
 		uint32_t vertexCount;
 		uint32_t indexCount;
 
-		VkBuffer vertexBuffer; 
-		VmaAllocation vertexAlloc;
-		VkBuffer indexBuffer;
-		VmaAllocation indexAlloc;
+		Buffer vertexBuffer;
+		Buffer indexBuffer;
 		BottomLevelAccelerationStructure blas;
 
 		void createVertexBuffer(Vertex* vertices);

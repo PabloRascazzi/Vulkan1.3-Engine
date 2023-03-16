@@ -5,6 +5,8 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+#include <resource_allocator.h>
+
 namespace core {
 
 	template <class integral>
@@ -25,8 +27,7 @@ namespace core {
 	};
 
 	struct SBTWrapper {
-		VkBuffer buffer = VK_NULL_HANDLE;
-		VmaAllocation alloc = VK_NULL_HANDLE;
+		Buffer buffer;
 		VkStridedDeviceAddressRegionKHR rgenRegion{};
 		VkStridedDeviceAddressRegionKHR missRegion{};
 		VkStridedDeviceAddressRegionKHR hitRegion{};

@@ -17,7 +17,7 @@ namespace core {
 	}
 
 	void RayTracingPipeline::cleanup() {
-		EngineContext::destroyBuffer(sbt.buffer, sbt.alloc);
+		ResourceAllocator::destroyBuffer(sbt.buffer);
 		device.destroyPipeline(pipeline);
 		device.destroyPipelineLayout(layout);
 	}
@@ -144,10 +144,10 @@ namespace core {
 		// Create SBT buffer.
 		VkDeviceSize sbtSize = sbt.rgenRegion.size + sbt.missRegion.size + sbt.hitRegion.size + sbt.callRegion.size;
 		VkBufferUsageFlags stbBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
-		EngineContext::createBuffer(sbtSize, stbBufferUsage, sbt.buffer, sbt.alloc);
+		ResourceAllocator::createBuffer(sbtSize, sbt.buffer, stbBufferUsage);
 		
 		// Find the SBT addresses of each group.
-		VkDeviceAddress sbtAddress = EngineContext::getBufferDeviceAddress(sbt.buffer);
+		VkDeviceAddress sbtAddress = sbt.buffer.getDeviceAddress();
 		sbt.rgenRegion.deviceAddress = sbtAddress;
 		sbt.missRegion.deviceAddress = sbtAddress + sbt.rgenRegion.size;
 		sbt.hitRegion.deviceAddress  = sbtAddress + sbt.rgenRegion.size + sbt.missRegion.size;
@@ -158,15 +158,15 @@ namespace core {
 		// Map SBT buffer with SBT handles.
 		uint32_t handleIndex = 0; 
 		size_t offset = 0;
-		EngineContext::mapBufferData(sbt.alloc, handleSize, getHandle(handleIndex++), offset); // Raygen
+		ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset); // Raygen
 		offset += sbt.rgenRegion.size;
 		for (uint32_t i = 0; i < missCount; i++) {
-			EngineContext::mapBufferData(sbt.alloc, handleSize, getHandle(handleIndex++), offset); // Miss
+			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset); // Miss
 			offset += sbt.missRegion.stride;
 		}
 		offset = 0 + sbt.rgenRegion.size + sbt.missRegion.size;
 		for (uint32_t i = 0; i < hitCount; i++) {
-			EngineContext::mapBufferData(sbt.alloc, handleSize, getHandle(handleIndex++), offset+=sbt.rgenRegion.size); // Hit
+			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset+=sbt.rgenRegion.size); // Hit
 			offset += sbt.hitRegion.stride;
 		}
 	}

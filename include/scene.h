@@ -3,6 +3,7 @@
 #include <glm/matrix.hpp>
 
 #include <vector>
+#include <unordered_set>
 #include <stddef.h>
 
 namespace core {
@@ -20,9 +21,13 @@ namespace core {
 		uint32_t shaderHitGroupOffset;
 	};
 
+	struct ObjDesc {
+		uint64_t vertexAddress;    // Address of the Vertex buffer
+		uint64_t indexAddress;     // Address of the index buffer
+	};
+
 	struct TopLevelAccelerationStructure {
-		VkBuffer buffer = VK_NULL_HANDLE;
-		VmaAllocation alloc = VK_NULL_HANDLE;
+		Buffer buffer;
 		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
 	};
 
@@ -38,9 +43,15 @@ namespace core {
 
 	private:
 		std::vector<Object> objects;
+		std::unordered_set<Mesh*> meshes;
+		std::vector<ObjDesc> objDescriptions;
+
+		VkBuffer objDescBuffer;
+		VmaAllocation objDescAlloc;
 		TopLevelAccelerationStructure tlas;
 
-		void buildAccelerationStructure(std::vector<Object>& objects);
+		void buildAccelerationStructure(std::vector<Object>& objects, std::unordered_set<Mesh*> meshes);
+		void createObjectDescriptions(std::vector<Object>& objects);
 
 	};
 }

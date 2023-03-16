@@ -12,6 +12,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 
+#include <resource_allocator.h>
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -253,9 +255,14 @@ namespace core {
         }
 
         // Setup physical device features to enable.
+        VkPhysicalDeviceTimelineSemaphoreFeatures timeSemFeature{};
+        timeSemFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR;
+        timeSemFeature.timelineSemaphore = VK_TRUE;
+
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{};
         accelFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
         accelFeature.accelerationStructure = VK_TRUE;
+        accelFeature.pNext = &timeSemFeature;
 
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR raytracingFeature{};
         raytracingFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
@@ -399,6 +406,8 @@ namespace core {
         if (vmaCreateAllocator(&allocatorInfo, &allocator) != VK_SUCCESS) {
             throw std::runtime_error("Could not create memory allocator.");
         }
+
+        ResourceAllocator::setup(device, allocator, commandPool, graphicsQueue);
     }
 
     void EngineContext::createSwapChain() {
@@ -682,11 +691,11 @@ namespace core {
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         // Bind vertex buffer
-        VkBuffer vertexBuffers[] = {object.mesh->getVertexBuffer()};
+        VkBuffer vertexBuffers[] = {object.mesh->getVertexBuffer().buffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
         // Bind index buffer
-        vkCmdBindIndexBuffer(commandBuffer, object.mesh->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffer, object.mesh->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
 
         StandardPushConstant constant;
         constant.world = object.transform;
@@ -954,23 +963,6 @@ namespace core {
     //                                   Memory Allocator                                    //
     //***************************************************************************************//
 
-    void EngineContext::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& alloc) {
-        VkBufferCreateInfo bufferCreateInfo{};
-		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferCreateInfo.size = size;
-		bufferCreateInfo.usage = usage;
-		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        
-        VmaAllocationCreateInfo allocCreateInfo{};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-
-        VmaAllocationInfo allocInfo;
-        if (vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &alloc, &allocInfo) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create buffer.");
-        }
-    }
-
     void EngineContext::createImage2D(VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& alloc) {
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1033,65 +1025,9 @@ namespace core {
         VK_CHECK_MSG(vkCreateSampler(device, &samplerInfo, nullptr, &sampler), "Failed to create image sampler.");
     }
 
-    void EngineContext::mapBufferData(VmaAllocation& alloc, size_t size, void* data, VkDeviceSize offset) {
-        VkDeviceSize* location;
-        vmaMapMemory(allocator, alloc, (void**)&location);
-        memcpy(location+offset, data, size);
-        vmaUnmapMemory(allocator, alloc);
-    }
-
-    void EngineContext::copyBufferData(VkBuffer& srcBuffer, VkBuffer& dstBuffer, size_t size) {
-        // Create new command buffer.
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = commandPool;
-        allocInfo.commandBufferCount = 1;
-
-        VkCommandBuffer cmdBuffer;
-        vkAllocateCommandBuffers(device, &allocInfo, &cmdBuffer);
-
-        // Record command buffer.
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-
-        VkBufferCopy copyRegion{};
-        copyRegion.srcOffset = 0;
-        copyRegion.dstOffset = 0;
-        copyRegion.size = size;
-        vkCmdCopyBuffer(cmdBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-        vkEndCommandBuffer(cmdBuffer);
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmdBuffer;
-
-        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(graphicsQueue);
-
-        // Destroy command buffer
-        vkFreeCommandBuffers(device, commandPool, 1, &cmdBuffer);
-    }
-
-    void EngineContext::destroyBuffer(VkBuffer& buffer, VmaAllocation& alloc) {
-        vmaDestroyBuffer(allocator, buffer, alloc);
-    }
-
     void EngineContext::destroyImage(Image& image) {
         vmaDestroyImage(allocator, image.image, image.allocation);
         device.destroyImageView(image.view);
         device.destroySampler(image.sampler);
-    }
-
-    VkDeviceAddress EngineContext::getBufferDeviceAddress(const VkBuffer& buffer) {
-        VkBufferDeviceAddressInfo addressInfo{};
-        addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-        addressInfo.buffer = buffer;
-
-        return vkGetBufferDeviceAddress(device, &addressInfo);
     }
 }

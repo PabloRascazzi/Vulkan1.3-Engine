@@ -11,18 +11,32 @@ namespace core {
 	}
 
 	void Scene::setup() {
-		buildAccelerationStructure(objects);
+		buildAccelerationStructure(objects, meshes);
+		createObjectDescriptions(objects);
 	}
 
 	void Scene::cleanup() {
-		EngineContext::destroyBuffer(tlas.buffer, tlas.alloc);
+		ResourceAllocator::destroyBuffer(tlas.buffer);
 		EngineContext::getDevice().destroyAccelerationStructureKHR(tlas.handle);
 	}
 
 	Object* Scene::addObject(Mesh* mesh, glm::mat4 transform, uint32_t shader) {
 		Object obj = {mesh, transform, shader};
 		objects.push_back(obj);
+		meshes.insert(mesh);
 		return &objects[objects.size()-1];
+	}
+
+	void Scene::createObjectDescriptions(std::vector<Object>& objects) {
+		for (auto obj : objects) {
+			VkDeviceAddress vertexAddress = obj.mesh->getVertexBuffer().getDeviceAddress();
+			VkDeviceAddress indexAddress = obj.mesh->getIndexBuffer().getDeviceAddress();
+			ObjDesc desc = { vertexAddress, indexAddress };
+			objDescriptions.push_back(desc);
+		}
+
+		// Add objDescriptions into a buffer.
+		// TODO
 	}
 
 	struct BlasCreateInfo {
@@ -35,12 +49,12 @@ namespace core {
 	void buildBLAS(std::vector<BlasCreateInfo>& input);
 	void buildTLAS(std::vector<Object>& objects, TopLevelAccelerationStructure& tlas);
 
-	void Scene::buildAccelerationStructure(std::vector<Object>& objects) {
+	void Scene::buildAccelerationStructure(std::vector<Object>& objects, std::unordered_set<Mesh*> meshes) {
 		// Create Bottom Level Acceleration Structure.
 		std::vector<BlasCreateInfo> allBlasCreateInfo;
-		allBlasCreateInfo.reserve(objects.size());
-		for (auto &obj : objects) {
-			allBlasCreateInfo.emplace_back(meshToBlasCreateInfo(*obj.mesh));
+		allBlasCreateInfo.reserve(meshes.size());
+		for (auto mesh : meshes) {
+			allBlasCreateInfo.emplace_back(meshToBlasCreateInfo(*mesh));
 		}
 		buildBLAS(allBlasCreateInfo);
 
@@ -49,8 +63,8 @@ namespace core {
 	}
 
 	BlasCreateInfo meshToBlasCreateInfo(Mesh& mesh) {
-		VkDeviceAddress vertexAddress = EngineContext::getBufferDeviceAddress(mesh.getVertexBuffer());
-		VkDeviceAddress indexAddress = EngineContext::getBufferDeviceAddress(mesh.getIndexBuffer());
+		VkDeviceAddress vertexAddress = mesh.getVertexBuffer().getDeviceAddress();
+		VkDeviceAddress indexAddress = mesh.getIndexBuffer().getDeviceAddress();
 		uint32_t maxPrimitiveCount = mesh.getIndexCount()/3;
 		
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles{};
@@ -109,10 +123,9 @@ namespace core {
 		}
 
 		// Allocate scratch buffers holding the temporary data of the acceleration structure builder.
-		VkBuffer scratchBuffer;
-		VmaAllocation scratchAlloc;
-		EngineContext::createBuffer(maxScratchSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, scratchBuffer, scratchAlloc);
-		VkDeviceAddress scratchAddress = EngineContext::getBufferDeviceAddress(scratchBuffer);
+		Buffer scratchBuffer;
+		ResourceAllocator::createBuffer(maxScratchSize, scratchBuffer, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		VkDeviceAddress scratchAddress = scratchBuffer.getDeviceAddress();
 
 		// Batch creation of BLAS to allow staying in restricted amount of memory.
 		VkDeviceSize batchSize = 0;
@@ -132,13 +145,13 @@ namespace core {
 				vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 
 				// Actual allocation of buffer and acceleration structure.
-				EngineContext::createBuffer(buildAS[i].sizeInfo.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, input[i].pBLAS->buffer, input[i].pBLAS->alloc);
-        
+				ResourceAllocator::createBuffer(buildAS[i].sizeInfo.accelerationStructureSize, input[i].pBLAS->buffer, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+
 				VkAccelerationStructureCreateInfoKHR createInfo{};
 				createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
 				createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 				createInfo.size = buildAS[i].sizeInfo.accelerationStructureSize;
-				createInfo.buffer = input[i].pBLAS->buffer;
+				createInfo.buffer = input[i].pBLAS->buffer.buffer;
 
 				if (vkCreateAccelerationStructureKHR(EngineContext::getDevice(), &createInfo, nullptr, &input[i].pBLAS->handle) != VK_SUCCESS) {
 					throw std::runtime_error("Failed to create bottom level acceleration structure.");
@@ -173,7 +186,7 @@ namespace core {
 			}
 		}
 
-		EngineContext::destroyBuffer(scratchBuffer, scratchAlloc);
+		ResourceAllocator::destroyBuffer(scratchBuffer);
 	}
 
 	VkTransformMatrixKHR toTransformMatrixKHR(glm::mat4 matrix) {
@@ -211,24 +224,12 @@ namespace core {
 
 		// Create and stage a buffer holding the actual instance data for use by the AS builder.
 		VkDeviceSize bufferSize = sizeof(VkAccelerationStructureInstanceKHR) * instCount;
-		
-		VkBuffer instanceStageBuffer;
-		VmaAllocation instanceStageAlloc;
-		VkBufferUsageFlags stageBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		EngineContext::createBuffer(bufferSize, stageBufferUsage, instanceStageBuffer, instanceStageAlloc);
-		EngineContext::mapBufferData(instanceStageAlloc, (size_t)bufferSize, instances.data());
+		Buffer instanceBuffer;
+		Buffer instanceStageBuffer;
+		ResourceAllocator::createAndStageBuffer(cmdBuffer, bufferSize, instances.data(), instanceStageBuffer, instanceBuffer, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR);
+		VkDeviceAddress instanceBufferAddress = instanceBuffer.getDeviceAddress();
 
-		VkBuffer instanceBuffer;
-		VmaAllocation instanceAlloc;
-		VkBufferUsageFlags bufferUsage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-		EngineContext::createBuffer(bufferSize, bufferUsage, instanceBuffer, instanceAlloc);
-		EngineContext::copyBufferData(instanceStageBuffer, instanceBuffer, bufferSize);
-
-		EngineContext::destroyBuffer(instanceStageBuffer, instanceStageAlloc);
-
-		VkDeviceAddress instanceBufferAddress = EngineContext::getBufferDeviceAddress(instanceBuffer);
-
-		// Make sure the copy of the instance buffer are copied before triggering the acceleratio structure build.
+		// Make sure the copy of the instance buffer are copied before triggering the acceleration structure build.
 		VkMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -257,22 +258,21 @@ namespace core {
 		sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 		vkGetAccelerationStructureBuildSizesKHR(EngineContext::getDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &instCount, &sizeInfo);
 
-		EngineContext::createBuffer(sizeInfo.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, tlas.buffer, tlas.alloc);
+		ResourceAllocator::createBuffer(sizeInfo.accelerationStructureSize, tlas.buffer, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 
 		VkAccelerationStructureCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
 		createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 		createInfo.size = sizeInfo.accelerationStructureSize;
-		createInfo.buffer = tlas.buffer;
+		createInfo.buffer = tlas.buffer.buffer;
 
 		if (vkCreateAccelerationStructureKHR(EngineContext::getDevice(), &createInfo, nullptr, &tlas.handle) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create top level acceleration structure.");
 		}
 
-		VkBuffer scratchBuffer;
-		VmaAllocation scratchAlloc;
-		EngineContext::createBuffer(sizeInfo.buildScratchSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBuffer, scratchAlloc);
-		VkDeviceAddress scratchAddress = EngineContext::getBufferDeviceAddress(scratchBuffer);
+		Buffer scratchBuffer;
+		ResourceAllocator::createBuffer(sizeInfo.buildScratchSize, scratchBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+		VkDeviceAddress scratchAddress = scratchBuffer.getDeviceAddress();
 
 		buildInfo.srcAccelerationStructure = VK_NULL_HANDLE;
 		buildInfo.dstAccelerationStructure = tlas.handle;
@@ -303,7 +303,8 @@ namespace core {
 		vkQueueSubmit(EngineContext::getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
 		vkQueueWaitIdle(EngineContext::getGraphicsQueue());
 
-		EngineContext::destroyBuffer(scratchBuffer, scratchAlloc);
-		EngineContext::destroyBuffer(instanceBuffer, instanceAlloc);
+		ResourceAllocator::destroyBuffer(scratchBuffer);
+		ResourceAllocator::destroyBuffer(instanceStageBuffer);
+		ResourceAllocator::destroyBuffer(instanceBuffer);
 	}
 }
