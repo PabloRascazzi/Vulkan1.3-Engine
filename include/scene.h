@@ -39,6 +39,8 @@ namespace core {
 		void cleanup();
 
 		Object* addObject(Mesh* mesh, glm::mat4 transform, uint32_t shader);
+
+		std::vector<Object>& getObjects() { return objects; }
 		TopLevelAccelerationStructure& getTLAS() { return tlas; }
 		std::vector<ObjDesc>& getObjDescriptions() { return objDescriptions; }
 

@@ -652,7 +652,7 @@ namespace core {
         }
     }
 
-    void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Camera& camera, Object& object) {
+    void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Camera& camera, Scene& scene) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -691,27 +691,29 @@ namespace core {
         scissor.extent = swapChainExtent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        // Bind vertex buffer
-        VkBuffer vertexBuffers[] = {object.mesh->getVertexBuffer().buffer};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-        // Bind index buffer
-        vkCmdBindIndexBuffer(commandBuffer, object.mesh->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        for (const auto& object : scene.getObjects()) {
+            // Bind vertex buffer
+            VkBuffer vertexBuffers[] = {object.mesh->getVertexBuffer().buffer};
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+            // Bind index buffer
+            vkCmdBindIndexBuffer(commandBuffer, object.mesh->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
 
-        StandardPushConstant constant;
-        constant.world = object.transform;
-        constant.view = camera.view;
-        constant.proj = camera.projection;
-        // TEST - static auto startTime = std::chrono::high_resolution_clock::now();
-        // TEST - auto currentTime = std::chrono::high_resolution_clock::now();
-        // TEST - float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-        // TEST - constant.world = glm::rotate(object.transform, time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            StandardPushConstant constant;
+            constant.world = object.transform;
+            constant.view = camera.view;
+            constant.proj = camera.projection;
+            // TEST - static auto startTime = std::chrono::high_resolution_clock::now();
+            // TEST - auto currentTime = std::chrono::high_resolution_clock::now();
+            // TEST - float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+            // TEST - constant.world = glm::rotate(object.transform, time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-        // Upload push constants
-        vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
+            // Upload push constants
+            vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
 
-        // Draw
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(object.mesh->getIndexCount()), 1, 0, 0, 0);
+            // Draw
+            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(object.mesh->getIndexCount()), 1, 0, 0, 0);
+        }
 
         // End render pass
         vkCmdEndRenderPass(commandBuffer);
@@ -721,7 +723,7 @@ namespace core {
         }
     }
 
-    void EngineContext::rasterize(Pipeline& pipeline, Camera& camera, Object& object) {
+    void EngineContext::rasterize(Pipeline& pipeline, Camera& camera, Scene& scene) {
         // Wait until previous frame has finished.
         device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         device.resetFences(1, &inFlightFences[currentFrame]);
@@ -732,7 +734,7 @@ namespace core {
 
         // Record command buffer.
         commandBuffers[currentFrame].reset();
-        recordRasterizeCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline, camera, object);
+        recordRasterizeCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline, camera, scene);
 
         // Submit command buffer.
         vk::SubmitInfo submitInfo{};
@@ -810,7 +812,7 @@ namespace core {
         if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
             barrier.srcAccessMask = 0;
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            srcStage = VK_ACCESS_TRANSFER_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
         } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
             barrier.srcAccessMask = 0;

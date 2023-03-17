@@ -164,7 +164,7 @@ int main() {
         if (raytrace) {
             EngineContext::raytrace((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene, outImages);
         } else {
-            EngineContext::rasterize((Pipeline&)*pipeline, camera, *quad);
+            EngineContext::rasterize((Pipeline&)*pipeline, camera, *scene);
         }
 
         // Reset Inputs.
