@@ -112,9 +112,9 @@ int main() {
 
         // Upload ray-tracing render pass output image uniform.
         Image outImage;
-        EngineContext::createImage2D(EngineContext::getSwapChainExtent(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, outImage.image, outImage.allocation);
-        EngineContext::createImageView2D(outImage.image, VK_FORMAT_R32G32B32A32_SFLOAT, outImage.view);
-        EngineContext::createSampler2D(outImage.sampler, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE);
+        ResourceAllocator::createImage2D(EngineContext::getSwapChainExtent(), VK_FORMAT_R32G32B32A32_SFLOAT, outImage, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+        ResourceAllocator::createImageView2D(VK_FORMAT_R32G32B32A32_SFLOAT, outImage);
+        ResourceAllocator::createSampler2D(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, outImage);
         outImages.push_back(outImage);
 
         VkDescriptorImageInfo rtImageDescInfo{};
@@ -180,7 +180,7 @@ int main() {
     delete RTpipeline;
     delete postPipeline;
     for (auto image : outImages) 
-        EngineContext::destroyImage(image);
+        ResourceAllocator::destroyImage(image);
     for (auto buffer : cameraBuffers)
         ResourceAllocator::destroyBuffer(buffer);
     delete rtDescSet;

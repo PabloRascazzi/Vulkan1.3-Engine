@@ -10,6 +10,13 @@ namespace core {
 		VkDeviceAddress getDeviceAddress();
 	};
 
+	struct Image {
+		VkImage image;
+		VkImageView view;
+		VkSampler sampler;
+		VmaAllocation allocation;
+	};
+
 	class ResourceAllocator {
 	public:
 		static void setup(const VkDevice& device, const VmaAllocator& allocator , const VkCommandPool& commandPool, const VkQueue transferQueue);
@@ -21,6 +28,11 @@ namespace core {
 		static void createAndStageBuffer(const VkCommandBuffer& commandBuffer, const VkDeviceSize& size, const void* data, Buffer& srcBuffer, Buffer& dstBuffer, VkBufferUsageFlags usage);
 		static VkDeviceAddress getBufferDeviceAddress(const Buffer& buffer);
 		static void destroyBuffer(Buffer& buffer);
+
+		static void createImage2D(const VkExtent2D& extent, const VkFormat& format, Image& image, VkImageUsageFlags usage);
+		static void createImageView2D(const VkFormat& format, Image& image);
+		static void createSampler2D(const VkSamplerAddressMode& addressMode, const bool& enableAnisotropy, Image& image);
+		static void destroyImage(const Image& buffer);
 
 	private:
 		static VkDevice device;

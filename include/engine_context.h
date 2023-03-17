@@ -50,13 +50,6 @@ namespace core {
 		}
 	};
 
-	struct Image {
-		VkImage image;
-		VkImageView view;
-		VkSampler sampler;
-		VmaAllocation allocation;
-	};
-
 	class EngineContext {
 	public:
 		static void setup();
@@ -88,11 +81,6 @@ namespace core {
 		static void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
 
 		static void exit();
-
-		static void createImage2D(VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& alloc);
-		static void createImageView2D(VkImage& image, VkFormat format, VkImageView& imageView);
-		static void createSampler2D(VkSampler& sampler, VkSamplerAddressMode addressMode, bool enableAnisotropy);
-		static void destroyImage(Image& image);
 
 	private:
 		static Window window;
