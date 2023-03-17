@@ -21,7 +21,10 @@ namespace core {
 		layoutBinding.descriptorCount = count;
 		layoutBinding.stageFlags = shaderStageFlags;
 
-		bindings.push_back(layoutBinding);
+		// Resize bindings list if too small.
+		if (bindings.size()-1 < binding || bindings.size() == 0) bindings.resize(binding+1);
+		// Add new descriptor set layout binding to list of bindings.
+		bindings[binding] = layoutBinding;
 	}
 
 	void DescriptorSet::create(VkDevice device) {
@@ -82,7 +85,7 @@ namespace core {
 	void DescriptorSet::writeBuffer(uint32_t binding, VkDescriptorBufferInfo& writeDescInfo) {
 		VkWriteDescriptorSet bufferWrite{};
 		bufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		bufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		bufferWrite.descriptorType = bindings[binding].descriptorType;
 		bufferWrite.descriptorCount = 1;
 		bufferWrite.dstBinding = binding;
 		bufferWrite.dstSet = descriptorSets[currentFrame];
@@ -91,10 +94,10 @@ namespace core {
 		writes.push_back(bufferWrite);
 	}
 
-	void DescriptorSet::writeImage(uint32_t binding, VkDescriptorImageInfo& writeDescInfo, VkDescriptorType type) {
+	void DescriptorSet::writeImage(uint32_t binding, VkDescriptorImageInfo& writeDescInfo) {
         VkWriteDescriptorSet imageWrite{};
         imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        imageWrite.descriptorType = type;
+		imageWrite.descriptorType = bindings[binding].descriptorType;
         imageWrite.descriptorCount = 1;
         imageWrite.dstBinding = binding;
         imageWrite.dstSet = descriptorSets[currentFrame];

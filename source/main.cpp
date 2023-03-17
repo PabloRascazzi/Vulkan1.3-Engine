@@ -67,7 +67,7 @@ int main() {
 
     // Create DescriptorSets.
     DescriptorSet* rtDescSet = new DescriptorSet();
-    rtDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+    rtDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
     rtDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
     rtDescSet->create(EngineContext::getDevice());
 
@@ -121,13 +121,13 @@ int main() {
         rtImageDescInfo.sampler = {};
         rtImageDescInfo.imageView = outImages[i].view;
         rtImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        rtDescSet->writeImage(1, rtImageDescInfo, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        rtDescSet->writeImage(1, rtImageDescInfo);
         
         VkDescriptorImageInfo postImageDescInfo{};
         postImageDescInfo.sampler = outImages[i].sampler;
         postImageDescInfo.imageView = outImages[i].view;
         postImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        postDescSet->writeImage(0, postImageDescInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        postDescSet->writeImage(0, postImageDescInfo);
 
         // Upload camera matrices uniform.
         ResourceAllocator::createBuffer(sizeof(CameraUniformBufferObject), cameraBuffers[i], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);

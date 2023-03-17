@@ -34,9 +34,6 @@ namespace core {
 			ObjDesc desc = { vertexAddress, indexAddress };
 			objDescriptions.push_back(desc);
 		}
-
-		// Add objDescriptions into a buffer.
-		// TODO
 	}
 
 	struct BlasCreateInfo {
@@ -128,47 +125,52 @@ namespace core {
 		VkDeviceAddress scratchAddress = scratchBuffer.getDeviceAddress();
 
 		// Batch creation of BLAS to allow staying in restricted amount of memory.
+		std::vector<uint32_t> indices;
 		VkDeviceSize batchSize = 0;
 		VkDeviceSize batchLimit = 256'000'000; // 256 MB
 		for (uint32_t i = 0; i < blasCount; i++) {
+			indices.push_back(i);
 			batchSize += buildAS[i].sizeInfo.accelerationStructureSize;
 			
 			// Over the batch limit or the last BLAS element.
 			if (batchSize >= batchLimit || i == blasCount-1) {
 				VkCommandBuffer cmdBuffer;
 				EngineContext::createCommandBuffer(&cmdBuffer, 1);
-
+				
 				// Record command buffer.
 				VkCommandBufferBeginInfo beginInfo{};
 				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 				vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 
-				// Actual allocation of buffer and acceleration structure.
-				ResourceAllocator::createBuffer(buildAS[i].sizeInfo.accelerationStructureSize, input[i].pBLAS->buffer, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+				for (const auto& idx : indices) {
+					// Actual allocation of buffer and acceleration structure.
+					ResourceAllocator::createBuffer(buildAS[idx].sizeInfo.accelerationStructureSize, input[idx].pBLAS->buffer, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 
-				VkAccelerationStructureCreateInfoKHR createInfo{};
-				createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-				createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-				createInfo.size = buildAS[i].sizeInfo.accelerationStructureSize;
-				createInfo.buffer = input[i].pBLAS->buffer.buffer;
+					VkAccelerationStructureCreateInfoKHR createInfo{};
+					createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+					createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+					createInfo.size = buildAS[idx].sizeInfo.accelerationStructureSize;
+					createInfo.buffer = input[idx].pBLAS->buffer.buffer;
 
-				if (vkCreateAccelerationStructureKHR(EngineContext::getDevice(), &createInfo, nullptr, &input[i].pBLAS->handle) != VK_SUCCESS) {
-					throw std::runtime_error("Failed to create bottom level acceleration structure.");
+					if (vkCreateAccelerationStructureKHR(EngineContext::getDevice(), &createInfo, nullptr, &input[idx].pBLAS->handle) != VK_SUCCESS) {
+						throw std::runtime_error("Failed to create bottom level acceleration structure.");
+					}
+
+					buildAS[idx].buildInfo.dstAccelerationStructure = input[idx].pBLAS->handle;
+					buildAS[idx].buildInfo.scratchData.deviceAddress = scratchAddress;
+
+					// Building the bottom-level-acceleration-structure
+					vkCmdBuildAccelerationStructuresKHR(cmdBuffer, 1, &buildAS[idx].buildInfo, &buildAS[idx].rangeInfo);
+
+					// Barrier to ensure that the scratch buffer is ready before building next acceleration structure.
+					VkMemoryBarrier barrier{};
+					barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+					barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+					barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+					vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 				}
-
-				buildAS[i].buildInfo.dstAccelerationStructure = input[i].pBLAS->handle;
-				buildAS[i].buildInfo.scratchData.deviceAddress = scratchAddress;
-
-				// Building the bottom-level-acceleration-structure
-				vkCmdBuildAccelerationStructuresKHR(cmdBuffer, 1, &buildAS[i].buildInfo, &buildAS[i].rangeInfo);
 				
-				VkMemoryBarrier barrier{};
-				barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-				barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-				barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-				vkCmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier, 0, nullptr, 0, nullptr);
-
 				// End command buffer.
 				vkEndCommandBuffer(cmdBuffer);
 
@@ -183,6 +185,7 @@ namespace core {
 
 				// Reset
 				batchSize = 0;
+				indices.clear();
 			}
 		}
 

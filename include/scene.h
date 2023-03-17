@@ -40,14 +40,13 @@ namespace core {
 
 		Object* addObject(Mesh* mesh, glm::mat4 transform, uint32_t shader);
 		TopLevelAccelerationStructure& getTLAS() { return tlas; }
+		std::vector<ObjDesc>& getObjDescriptions() { return objDescriptions; }
 
 	private:
 		std::vector<Object> objects;
 		std::unordered_set<Mesh*> meshes;
 		std::vector<ObjDesc> objDescriptions;
 
-		VkBuffer objDescBuffer;
-		VmaAllocation objDescAlloc;
 		TopLevelAccelerationStructure tlas;
 
 		void buildAccelerationStructure(std::vector<Object>& objects, std::unordered_set<Mesh*> meshes);

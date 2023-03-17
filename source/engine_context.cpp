@@ -276,6 +276,7 @@ namespace core {
 
         VkPhysicalDeviceFeatures deviceFeatures{};
         deviceFeatures.samplerAnisotropy = VK_TRUE;
+        deviceFeatures.shaderInt64 = VK_TRUE;
 
         VkPhysicalDeviceFeatures2 allDeviceFeatures{};
         allDeviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
