@@ -6,6 +6,7 @@ Author: Pablo Rascazzi
 * **Clone/download** repository
 * **Build** solution in either *Debug x64* or *Release x64* configuration
 * **Add SDL2.dll** file into the generated `.\x64\Debug\` or `.\x64\Release\` directories
+* **Run** python script `compileShaders.py` in the project's root directory
 * **Run** solution
 
 ### Important Information
