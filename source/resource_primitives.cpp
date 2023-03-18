@@ -4,12 +4,13 @@
 namespace core {
 
 	Mesh* ResourcePrimitives::createQuad(const float& edgeLength) {
+        float half = (edgeLength / 2.0f);
         uint32_t vertexCount = 4;
         Vertex* vertices = new Vertex[vertexCount]{
-            {{-(edgeLength/2.0f), -(edgeLength/2.0f), 0.0f}, {1.0f, 0.0f, 0.0f}}, // Bottom left
-            {{ (edgeLength/2.0f), -(edgeLength/2.0f), 0.0f}, {0.0f, 1.0f, 0.0f}}, // Bottom right
-            {{ (edgeLength/2.0f),  (edgeLength/2.0f), 0.0f}, {0.0f, 0.0f, 1.0f}}, // Top Right
-            {{-(edgeLength/2.0f),  (edgeLength/2.0f), 0.0f}, {1.0f, 1.0f, 1.0f}}, // Top Left
+            {{-half, -half, 0.0f}, {1.0f, 0.0f, 0.0f}}, // Bottom left
+            {{ half, -half, 0.0f}, {0.0f, 1.0f, 0.0f}}, // Bottom right
+            {{ half,  half, 0.0f}, {0.0f, 0.0f, 1.0f}}, // Top Right
+            {{-half,  half, 0.0f}, {1.0f, 1.0f, 1.0f}}, // Top Left
         };
 
         uint32_t indexCount = 6;
@@ -60,6 +61,29 @@ namespace core {
 	}
 
 	Mesh* ResourcePrimitives::createCube(const float& edgeLength) {
-        return nullptr;
+        float half = (edgeLength / 2.0f);
+        uint32_t vertexCount = 8;
+        Vertex* vertices = new Vertex[vertexCount]{
+            {{-half, -half,  half}, {1.0f, 0.0f, 0.0f}}, // Front Bottom left
+            {{ half, -half,  half}, {0.0f, 1.0f, 0.0f}}, // Front Bottom right
+            {{ half,  half,  half}, {0.0f, 0.0f, 1.0f}}, // Front Top Right
+            {{-half,  half,  half}, {1.0f, 1.0f, 1.0f}}, // Front Top Left
+            {{-half, -half, -half}, {1.0f, 0.0f, 0.0f}}, // Back Bottom left
+            {{ half, -half, -half}, {0.0f, 1.0f, 0.0f}}, // Back Bottom right
+            {{ half,  half, -half}, {0.0f, 0.0f, 1.0f}}, // Back Top Right
+            {{-half,  half, -half}, {1.0f, 1.0f, 1.0f}}, // Back Top Left
+        };
+
+        uint32_t indexCount = 36;
+        uint32_t* indices = new uint32_t[indexCount]{
+            0, 1, 2, 2, 3, 0, // Front
+            6, 5, 4, 4, 7, 6, // Back
+            7, 4, 0, 0, 3, 7, // Left
+            2, 1, 5, 5, 6, 2, // Right
+            7, 3, 2, 2, 6, 7, // Top
+            0, 4, 5, 5, 1, 0, // Bottom
+        };
+
+        return new Mesh((float*)vertices, vertexCount, indices, indexCount);
 	}
 }

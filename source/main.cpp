@@ -45,12 +45,14 @@ int main() {
 
     // Create Mesh.
     Mesh* quad = ResourcePrimitives::createQuad(1.0f);
-    Mesh* plane = ResourcePrimitives::createPlane(8, 1.0f);
+    Mesh* plane = ResourcePrimitives::createPlane(6, 1.0f);
+    Mesh* cube = ResourcePrimitives::createCube(1.0f);
 
     // Create Scene.
     Scene* scene = new Scene();
     Object* quadObj  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)), 0);
     Object* planeObj = scene->addObject(plane, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
+    Object* cubeObj = scene->addObject(cube, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 2.0f, -2.5f)), 0);
     Camera camera{};
     camera.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)); // Opposite direction as world transforms.
     camera.viewInverse = glm::inverse(camera.view);
@@ -170,6 +172,7 @@ int main() {
     // Clean up objects.
     delete quad;
     delete plane;
+    delete cube;
     delete pipeline;
     delete RTpipeline;
     delete postPipeline;

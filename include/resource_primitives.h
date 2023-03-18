@@ -9,7 +9,5 @@ namespace core {
 		static Mesh* createPlane(const uint32_t& edgeCount, const float& edgeLength);
 		static Mesh* createCube(const float& edgeLength);
 
-	private:
-
 	};
 }
