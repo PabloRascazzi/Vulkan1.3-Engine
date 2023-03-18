@@ -168,6 +168,7 @@
     <ClCompile Include="source\descriptor_set.cpp" />
     <ClCompile Include="source\pipeline\post_pipeline.cpp" />
     <ClCompile Include="source\resource_allocator.cpp" />
+    <ClCompile Include="source\resource_primitives.cpp" />
     <ClCompile Include="source\scene.cpp" />
     <ClCompile Include="source\engine_context.cpp" />
     <ClCompile Include="source\input.cpp" />
@@ -184,6 +185,7 @@
     <ClInclude Include="include\descriptor_set.h" />
     <ClInclude Include="include\pipeline\post_pipeline.h" />
     <ClInclude Include="include\resource_allocator.h" />
+    <ClInclude Include="include\resource_primitives.h" />
     <ClInclude Include="include\scene.h" />
     <ClInclude Include="include\engine_context.h" />
     <ClInclude Include="include\input.h" />

@@ -6,6 +6,7 @@
 #include <pipeline/standard_pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
 #include <pipeline/post_pipeline.h>
+#include <resource_primitives.h>
 
 #include <iostream>
 #include <Vulkan/vulkan.h>
@@ -43,21 +44,13 @@ int main() {
     std::cout << "Max Instance Count: " << EngineContext::getAccelerationStructureProperties().maxInstanceCount << std::endl;
 
     // Create Mesh.
-    const std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-    };
-    const std::vector<uint32_t> indices = {
-        0, 1, 2,
-        2, 3, 0,
-    };
-    Mesh* mesh = new Mesh((float*)vertices.data(), static_cast<uint32_t>(vertices.size()), (uint32_t*)indices.data(), static_cast<uint32_t>(indices.size()));
+    Mesh* quad = ResourcePrimitives::createQuad(1.0f);
+    Mesh* plane = ResourcePrimitives::createPlane(8, 1.0f);
 
-    // Create Acceleration Structure.
+    // Create Scene.
     Scene* scene = new Scene();
-    Object* quad = scene->addObject(mesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)), 0);
+    Object* quadObj  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)), 0);
+    Object* planeObj = scene->addObject(plane, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
     Camera camera{};
     camera.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)); // Opposite direction as world transforms.
     camera.viewInverse = glm::inverse(camera.view);
@@ -175,7 +168,8 @@ int main() {
     EngineContext::getDevice().waitIdle();
 
     // Clean up objects.
-    delete mesh;
+    delete quad;
+    delete plane;
     delete pipeline;
     delete RTpipeline;
     delete postPipeline;

@@ -21,8 +21,10 @@ namespace core {
 	void Mesh::cleanup() {
 		ResourceAllocator::destroyBuffer(vertexBuffer);
 		ResourceAllocator::destroyBuffer(indexBuffer);
-		ResourceAllocator::destroyBuffer(blas.buffer);
-		EngineContext::getDevice().destroyAccelerationStructureKHR(blas.handle);
+		if (blas.handle != VK_NULL_HANDLE) {
+			ResourceAllocator::destroyBuffer(blas.buffer);
+			EngineContext::getDevice().destroyAccelerationStructureKHR(blas.handle);
+		}
 	}
 
 	void Mesh::createVertexBuffer(Vertex* vertices) {
