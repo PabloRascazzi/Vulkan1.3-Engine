@@ -16,6 +16,7 @@
 #include <window.h>
 #include <pipeline/pipeline.h>
 #include <mesh.h>
+#include <camera.h>
 #include <scene.h>
 
 #include <string>
@@ -56,7 +57,7 @@ namespace core {
 		static bool update();
 		static void cleanup();
 
-		static void rasterize(Pipeline& pipeline, Camera& camera, Scene& scene);
+		static void rasterize(Pipeline& pipeline, Scene& scene);
 		static void raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene, std::vector<Image>& outImages);
 
 		static Window* getWindow() { return &window; }
@@ -133,7 +134,7 @@ namespace core {
 
 		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
 		static void transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
-		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Camera& camera, Scene& scene);
+		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Scene& scene);
 		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, std::vector<Image>& outImages, uint32_t imageIndex);
 
 		static bool isDeviceSuitable(VkPhysicalDevice device);

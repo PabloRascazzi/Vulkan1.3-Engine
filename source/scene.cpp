@@ -1,6 +1,7 @@
 #include <scene.h>
 #include <engine_context.h>
 #include <iostream>
+#include <algorithm>
 
 namespace core {
 
@@ -16,8 +17,26 @@ namespace core {
 	}
 
 	void Scene::cleanup() {
+		// Delete all scene cameras.
+		for (auto& camera : cameras) delete camera;
+		cameras.clear();
+
 		ResourceAllocator::destroyBuffer(tlas.buffer);
 		EngineContext::getDevice().destroyAccelerationStructureKHR(tlas.handle);
+	}
+
+	void Scene::update() {
+		// Update all cameras.
+		for (auto& camera : cameras) {
+			camera->update();
+		}
+	}
+
+	Camera* Scene::addCamera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n, const float& f) {
+		Camera* cam = new Camera(transform, fov, aspectRatio, n, f);
+		cameras.push_back(cam);
+		if (cameras.size() == 1) this->mainCamera = cameras[0];
+		return cameras[cameras.size()-1];
 	}
 
 	Object* Scene::addObject(Mesh* mesh, glm::mat4 transform, uint32_t shader) {
@@ -25,6 +44,13 @@ namespace core {
 		objects.push_back(obj);
 		meshes.insert(mesh);
 		return &objects[objects.size()-1];
+	}
+
+	void Scene::setMainCamera(Camera* camera) {
+		// Check if camera is part of the scene before setting as main camera.
+		if (std::find(cameras.begin(), cameras.end(), camera) != cameras.end()) {
+			this->mainCamera = camera; 
+		}
 	}
 
 	void Scene::createObjectDescriptions(std::vector<Object>& objects) {

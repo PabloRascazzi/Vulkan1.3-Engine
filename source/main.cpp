@@ -1,6 +1,7 @@
 #include <engine_context.h>
 #include <input.h>
 #include <mesh.h>
+#include <camera.h>
 #include <scene.h>
 #include <descriptor_set.h>
 #include <pipeline/standard_pipeline.h>
@@ -53,11 +54,7 @@ int main() {
     Object* quadObj  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)), 0);
     Object* planeObj = scene->addObject(plane, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
     Object* cubeObj = scene->addObject(cube, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 2.0f, -2.5f)), 0);
-    Camera camera{};
-    camera.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f)); // Opposite direction as world transforms.
-    camera.viewInverse = glm::inverse(camera.view);
-    camera.projection = getPerspective(60.0f, EngineContext::getWindow()->getAspectRatio(), 0.01f, 1000.0f);
-    camera.projectionInverse = glm::inverse(camera.projection);
+    Camera* camera = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow()->getAspectRatio());
     scene->setup();
 
     // Create DescriptorSets.
@@ -82,9 +79,9 @@ int main() {
     };
 
     CameraUniformBufferObject cameraUBO{};
-    cameraUBO.viewProj = camera.projection * camera.view;
-    cameraUBO.viewInverse = camera.viewInverse;
-    cameraUBO.projInverse = camera.projectionInverse;
+    cameraUBO.viewProj = scene->getMainCamera().getProjectionMatrix() * scene->getMainCamera().getViewMatrix();
+    cameraUBO.viewInverse = scene->getMainCamera().getViewInverseMatrix();
+    cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
 
     // Create Pipeline.
     StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), "shader", EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
@@ -155,11 +152,13 @@ int main() {
             raytrace = false;
         }
 
+        scene->update();
+
         // Render using correct pipelines.
         if (raytrace) {
             EngineContext::raytrace((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene, outImages);
         } else {
-            EngineContext::rasterize((Pipeline&)*pipeline, camera, *scene);
+            EngineContext::rasterize((Pipeline&)*pipeline, *scene);
         }
 
         // Reset Inputs.
@@ -189,22 +188,4 @@ int main() {
     Input::cleanup();
 
     return 0;
-}
-
-glm::mat4 getPerspective(float vertical_fov, float aspect_ratio, float n, float f) {
-    float fov_rad = vertical_fov * 2.0f * static_cast<float>(M_PI) / 360.0f;
-    float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
-
-    float x  =  focal_length / aspect_ratio;
-    float y  = -focal_length;
-    float A = f / (n - f);
-    float B = (n * f) / (n - f);
-
-    glm::mat4 projection({
-        x,    0.0f,  0.0f,  0.0f,
-        0.0f,    y,  0.0f,  0.0f,
-        0.0f, 0.0f,     A, -1.0f,
-        0.0f, 0.0f,     B,  0.0f,
-    });
-    return projection;
 }

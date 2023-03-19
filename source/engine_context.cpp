@@ -652,7 +652,7 @@ namespace core {
         }
     }
 
-    void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Camera& camera, Scene& scene) {
+    void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Scene& scene) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -701,8 +701,8 @@ namespace core {
 
             StandardPushConstant constant;
             constant.world = object.transform;
-            constant.view = camera.view;
-            constant.proj = camera.projection;
+            constant.view = scene.getMainCamera().getViewMatrix();
+            constant.proj = scene.getMainCamera().getProjectionMatrix();
             // TEST - static auto startTime = std::chrono::high_resolution_clock::now();
             // TEST - auto currentTime = std::chrono::high_resolution_clock::now();
             // TEST - float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
@@ -723,7 +723,7 @@ namespace core {
         }
     }
 
-    void EngineContext::rasterize(Pipeline& pipeline, Camera& camera, Scene& scene) {
+    void EngineContext::rasterize(Pipeline& pipeline, Scene& scene) {
         // Wait until previous frame has finished.
         device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         device.resetFences(1, &inFlightFences[currentFrame]);
@@ -734,7 +734,7 @@ namespace core {
 
         // Record command buffer.
         commandBuffers[currentFrame].reset();
-        recordRasterizeCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline, camera, scene);
+        recordRasterizeCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline, scene);
 
         // Submit command buffer.
         vk::SubmitInfo submitInfo{};
