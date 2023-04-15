@@ -64,7 +64,7 @@ namespace core {
 	std::vector<vk::Semaphore> EngineContext::renderFinishedSemaphores;
 	std::vector<vk::Fence> EngineContext::inFlightFences;
 
-    uint32_t currentFrame = 0;
+    uint32_t EngineContext::currentFrame = 0;
 
     void EngineContext::setup() {
         try {
@@ -773,6 +773,20 @@ namespace core {
         VkCommandBuffer commandBuffer;
         createCommandBuffer(&commandBuffer, 1);
 
+        // Create memory transfer semaphore.
+        VkSemaphoreTypeCreateInfo timelineSemaphoreInfo{};
+        timelineSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+        timelineSemaphoreInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+        timelineSemaphoreInfo.initialValue = 0;
+
+        VkSemaphoreCreateInfo semaphoreInfo{};
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        semaphoreInfo.pNext = &timelineSemaphoreInfo;
+        
+        VkSemaphore imageTransitionComplete;
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageTransitionComplete));
+
+        // Record command buffer.
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -782,14 +796,34 @@ namespace core {
 
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
 
+        const uint64_t signalValue = 1;
+        VkTimelineSemaphoreSubmitInfo timelineInfo{};
+        timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timelineInfo.signalSemaphoreValueCount = 1;
+        timelineInfo.pSignalSemaphoreValues = &signalValue;
+
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffer;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = &imageTransitionComplete;
+        submitInfo.pNext = &timelineInfo;
 
         VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
-        VK_CHECK(vkQueueWaitIdle(graphicsQueue));
+
+        // Wait for memory transfer to complete.
+        const uint64_t waitValue = 1;
+        VkSemaphoreWaitInfo waitInfo{};
+        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+        waitInfo.semaphoreCount = 1;
+        waitInfo.pSemaphores = &imageTransitionComplete;
+        waitInfo.pValues = &waitValue;
+        VK_CHECK(vkWaitSemaphores(device, &waitInfo, UINT64_MAX));
+
+        // Destroy command buffer and semaphore.
         vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+        vkDestroySemaphore(device, imageTransitionComplete, nullptr);
     }
 
     void EngineContext::transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout) {
@@ -838,9 +872,6 @@ namespace core {
         if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("Could not begin recording command buffer.");
         }
-
-        // Transition image layout to general.
-        transitionImageLayout(commandBuffer, outImages[currentFrame].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
         // Bind pipeline.
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.getHandle());

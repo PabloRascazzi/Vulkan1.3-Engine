@@ -25,9 +25,6 @@
     <ClCompile Include="source\mesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\pipeline\raytracing_pipeline.cpp">
-      <Filter>Source Files\Pipeline</Filter>
-    </ClCompile>
     <ClCompile Include="source\vulkan_extension.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -48,6 +45,9 @@
     </ClCompile>
     <ClCompile Include="source\camera.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pipeline\raytracing_pipeline.cpp">
+      <Filter>Source Files\Pipeline</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -137,6 +137,9 @@
       <Filter>Resource Files\Shaders\GLSL</Filter>
     </None>
     <None Include="resource\shaders\GLSL\postShader.frag">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+    <None Include="resource\shaders\GLSL\raytrace_reflect.rchit">
       <Filter>Resource Files\Shaders\GLSL</Filter>
     </None>
   </ItemGroup>

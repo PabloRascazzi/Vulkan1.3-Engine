@@ -107,6 +107,7 @@ int main() {
         ResourceAllocator::createImage2D(EngineContext::getSwapChainExtent(), VK_FORMAT_R32G32B32A32_SFLOAT, outImage, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
         ResourceAllocator::createImageView2D(VK_FORMAT_R32G32B32A32_SFLOAT, outImage);
         ResourceAllocator::createSampler2D(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, outImage);
+        EngineContext::transitionImageLayout(outImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
         outImages.push_back(outImage);
 
         VkDescriptorImageInfo rtImageDescInfo{};
@@ -152,7 +153,21 @@ int main() {
             raytrace = false;
         }
 
+        // Update scene.
         scene->update();
+
+        // Update main Camera uniform buffer.
+        cameraUBO.viewProj = scene->getMainCamera().getProjectionMatrix() * scene->getMainCamera().getViewMatrix();
+        cameraUBO.viewInverse = scene->getMainCamera().getViewInverseMatrix();
+        cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
+
+        ResourceAllocator::mapDataToBuffer(cameraBuffers[EngineContext::getCurrentFrame()], sizeof(CameraUniformBufferObject), &cameraUBO);
+
+        VkDescriptorBufferInfo camDescInfo{};
+        camDescInfo.buffer = cameraBuffers[EngineContext::getCurrentFrame()].buffer;
+        camDescInfo.offset = 0;
+        camDescInfo.range = sizeof(CameraUniformBufferObject);
+        globalDescSet->writeBuffer(0, camDescInfo);
 
         // Render using correct pipelines.
         if (raytrace) {

@@ -204,6 +204,7 @@
     <None Include="resource\shaders\GLSL\raytrace.rchit" />
     <None Include="resource\shaders\GLSL\raytrace.rgen" />
     <None Include="resource\shaders\GLSL\raytrace.rmiss" />
+    <None Include="resource\shaders\GLSL\raytrace_reflect.rchit" />
     <None Include="resource\shaders\GLSL\shader.frag" />
     <None Include="resource\shaders\GLSL\shader.vert" />
   </ItemGroup>

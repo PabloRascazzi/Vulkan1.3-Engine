@@ -71,6 +71,13 @@ namespace core {
 		chitShaderStageInfo.pName = "main";
 		shaderStages.push_back(chitShaderStageInfo);
 
+		VkPipelineShaderStageCreateInfo chitReflectShaderStageInfo{};
+		chitReflectShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		chitReflectShaderStageInfo.module = createShaderModule("./resource/shaders/SPIR-V/raytrace_reflect.rchit.spv");
+		chitReflectShaderStageInfo.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+		chitReflectShaderStageInfo.pName = "main";
+		//shaderStages.push_back(chitReflectShaderStageInfo);
+
 		// Create shader groups.
 		VkRayTracingShaderGroupCreateInfoKHR genShaderGroupInfo{};
 		genShaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -99,6 +106,15 @@ namespace core {
 		chitShaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
 		shaderGroups.push_back(chitShaderGroupInfo);
 
+		VkRayTracingShaderGroupCreateInfoKHR chitReflectShaderGroupInfo{};
+		chitReflectShaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		chitReflectShaderGroupInfo.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+		chitReflectShaderGroupInfo.anyHitShader = VK_SHADER_UNUSED_KHR;
+		chitReflectShaderGroupInfo.closestHitShader = 3;
+		chitReflectShaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
+		chitReflectShaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
+		//shaderGroups.push_back(chitReflectShaderGroupInfo);
+
 		// Create pipeline.
 		VkRayTracingPipelineCreateInfoKHR pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
@@ -106,7 +122,7 @@ namespace core {
 		pipelineInfo.pStages = shaderStages.data();
 		pipelineInfo.groupCount = static_cast<uint32_t>(shaderGroups.size());
 		pipelineInfo.pGroups = shaderGroups.data();
-		pipelineInfo.maxPipelineRayRecursionDepth = 1; 
+		pipelineInfo.maxPipelineRayRecursionDepth = 2; 
 		pipelineInfo.layout = layout;
 		
 		if (vkCreateRayTracingPipelinesKHR(device, {}, {}, 1, &pipelineInfo, nullptr, (VkPipeline*)&pipeline) != VK_SUCCESS) {
@@ -117,6 +133,7 @@ namespace core {
 		device.destroyShaderModule(genShaderStageInfo.module);
 		device.destroyShaderModule(missShaderStageInfo.module);
 		device.destroyShaderModule(chitShaderStageInfo.module);
+		device.destroyShaderModule(chitReflectShaderStageInfo.module);
 	}
 
 	void RayTracingPipeline::createShaderBindingTable() {
@@ -164,9 +181,8 @@ namespace core {
 			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset); // Miss
 			offset += sbt.missRegion.stride;
 		}
-		offset = 0 + sbt.rgenRegion.size + sbt.missRegion.size;
 		for (uint32_t i = 0; i < hitCount; i++) {
-			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset+=sbt.rgenRegion.size); // Hit
+			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset); // Hit
 			offset += sbt.hitRegion.stride;
 		}
 	}

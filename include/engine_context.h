@@ -80,6 +80,10 @@ namespace core {
 		static vk::Extent2D getSwapChainExtent() { return swapChainExtent; }
 
 		static void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
+		static void transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
+		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
+
+		static uint32_t getCurrentFrame() { return currentFrame; }
 
 		static void exit();
 
@@ -116,6 +120,8 @@ namespace core {
 		static std::vector<vk::Semaphore> renderFinishedSemaphores;
 		static std::vector<vk::Fence> inFlightFences;
 
+		static uint32_t currentFrame;
+
 		static void setupInstanceExtensions();
 		static void setupValidationLayers();
 		static void createInstance();
@@ -132,8 +138,6 @@ namespace core {
 		static void createFrameCommandBuffers();
 		static void createSyncObjects();
 
-		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
-		static void transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
 		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Scene& scene);
 		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, std::vector<Image>& outImages, uint32_t imageIndex);
 
