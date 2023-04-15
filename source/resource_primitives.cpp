@@ -31,9 +31,9 @@ namespace core {
         for (uint32_t i = 0; i < edgeCount + 1; i++) {
             for (uint32_t j = 0; j < edgeCount + 1; j++) {
                 // To flip up direction of the plane, flip 'x' and 'z'.
-                float z = {i - ((static_cast<float>(edgeCount) / 2.0f) * edgeLength)};
+                float z = {-((static_cast<float>(edgeCount) * edgeLength) / 2.0f) + (i * edgeLength)};
                 float y = 0.0f;
-                float x = {j - ((static_cast<float>(edgeCount) / 2.0f) * edgeLength)};
+                float x = {-((static_cast<float>(edgeCount) * edgeLength) / 2.0f) + (j * edgeLength)};
                 float r = static_cast<float>(i) / static_cast<float>(edgeCount + 1);
                 float g = 0.5f;
                 float b = static_cast<float>(j) / static_cast<float>(edgeCount + 1);

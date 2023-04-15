@@ -45,16 +45,18 @@ int main() {
     std::cout << "Max Instance Count: " << EngineContext::getAccelerationStructureProperties().maxInstanceCount << std::endl;
 
     // Create Mesh.
-    Mesh* quad = ResourcePrimitives::createQuad(1.0f);
-    Mesh* plane = ResourcePrimitives::createPlane(6, 1.0f);
+    Mesh* quad = ResourcePrimitives::createQuad(2.0f);
+    Mesh* plane = ResourcePrimitives::createPlane(6, 2.0f);
     Mesh* cube = ResourcePrimitives::createCube(1.0f);
 
     // Create Scene.
     Scene* scene = new Scene();
-    Object* quadObj  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)), 0);
-    Object* planeObj = scene->addObject(plane, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
-    Object* cubeObj = scene->addObject(cube, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 2.0f, -2.5f)), 0);
-    Camera* camera = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow()->getAspectRatio());
+    glm::mat4 mirrorRotation = glm::rotate(glm::mat4(1.0f), glm::radians(5.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    Object* mirror1  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3( 3.0f,  0.0f, -7.5f)) * (glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
+    Object* mirror2  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f,  0.0f, -2.5f)) * (glm::rotate(glm::mat4(1.0f), glm::radians(135.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
+    Object* demoCube = scene->addObject(cube, glm::translate(glm::mat4(1.0f), glm::vec3( 0.0f, -0.5f, -5.0f)), 0);
+    Object* floor    = scene->addObject(plane, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
+    Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow()->getAspectRatio());
     scene->setup();
 
     // Create DescriptorSets.

@@ -14,6 +14,7 @@ namespace core {
 	}
 
 	void Camera::update() {
+		// Calculate translation amount.
 		float movementSpeed = 10.0f;
 		float delta = movementSpeed * static_cast<float>(Time::getDT());
 		glm::vec3 movement = glm::vec3(
@@ -21,7 +22,16 @@ namespace core {
 			(Input::getKey(INPUT_KEY_E) ? -delta : 0.0) + (Input::getKey(INPUT_KEY_Q) ? delta : 0.0),
 			(Input::getKey(INPUT_KEY_W) ? -delta : 0.0) + (Input::getKey(INPUT_KEY_S) ? delta : 0.0));
 
-		glm::mat4 transform = glm::translate(viewInverse, movement);
+		// Calculate rotation amount.
+		float rotationSpeed = 50.0f;
+		delta = rotationSpeed * static_cast<float>(Time::getDT());
+		glm::vec3 rotation = glm::vec3(
+			(Input::getKey(INPUT_KEY_UP)    ? delta : 0.0) + (Input::getKey(INPUT_KEY_DOWN)   ? -delta : 0.0),
+			(Input::getKey(INPUT_KEY_LEFT)  ? delta : 0.0) + (Input::getKey(INPUT_KEY_RIGHT)  ? -delta : 0.0),
+			(Input::getKey(INPUT_KEY_COMMA) ? delta : 0.0) + (Input::getKey(INPUT_KEY_PERIOD) ? -delta : 0.0));
+		
+		// Create tranformation matrix.
+		glm::mat4 transform = glm::rotate(glm::rotate(glm::rotate(glm::translate(viewInverse, movement), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f)), glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 		this->view = glm::inverse(transform);
 		this->viewInverse = transform;
 	}
