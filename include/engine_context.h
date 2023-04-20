@@ -105,7 +105,6 @@ namespace core {
 		static vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProperties;
 
 		static vk::CommandPool commandPool;
-		static VmaAllocator allocator;
 
 		static vk::RenderPass renderPass;
 		static vk::SwapchainKHR swapChain;
@@ -129,7 +128,6 @@ namespace core {
 		static void setupDeviceExtensions();
 		static void selectPhysicalDevice();
 		static void createLogicalDevice();
-		static void createAllocator();
 		static void createSwapChain();
 		static void createRenderPass();
 		static void createImageViews();

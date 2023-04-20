@@ -19,7 +19,7 @@ namespace core {
 
 	class ResourceAllocator {
 	public:
-		static void setup(const VkDevice& device, const VmaAllocator& allocator , const VkCommandPool& commandPool, const VkQueue transferQueue);
+		static void setup(const VkInstance& instance, const VkPhysicalDevice& physicalDevice, const VkDevice& device, const uint32_t familyQueueIndex);
 		static void cleanup();
 
 		static void createBuffer(const VkDeviceSize& size, Buffer& buffer, VkBufferUsageFlags usage);
@@ -40,5 +40,8 @@ namespace core {
 		static VkQueue transferQueue;
 		static VmaAllocator allocator;
 
+		static void createAllocator(const VkInstance& instance, const VkPhysicalDevice physicalDevice);
+		static void fetchQueue(const VkDevice& device, const uint32_t familyQueueIndex);
+		static void createCommandPool(const uint32_t familyQueueIndex);
 	};
 }

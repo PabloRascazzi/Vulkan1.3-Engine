@@ -15,15 +15,41 @@ namespace core {
         return ResourceAllocator::getBufferDeviceAddress(*this);
     }
 
-    void ResourceAllocator::setup(const VkDevice& device, const VmaAllocator& allocator, const VkCommandPool& commandPool, const VkQueue transferQueue) {
+    void ResourceAllocator::setup(const VkInstance& instance, const VkPhysicalDevice& physicalDevice, const VkDevice& device, const uint32_t familyQueueIndex) {
         ResourceAllocator::device = device;
-        ResourceAllocator::allocator = allocator;
-        ResourceAllocator::commandPool = commandPool;
-        ResourceAllocator::transferQueue = transferQueue;
+        createAllocator(instance, physicalDevice);
+        fetchQueue(device, familyQueueIndex);
+        createCommandPool(familyQueueIndex);
     }
 
     void ResourceAllocator::cleanup() {
-        // Nothing.
+        vkDestroyCommandPool(device, commandPool, nullptr);
+        vmaDestroyAllocator(allocator);
+    }
+
+    void ResourceAllocator::createAllocator(const VkInstance& instance, const VkPhysicalDevice physicalDevice) {
+        VmaAllocatorCreateInfo allocatorInfo{};
+        allocatorInfo.vulkanApiVersion = ENGINE_GRAPHICS_API_VERSION;
+        allocatorInfo.physicalDevice = physicalDevice;
+        allocatorInfo.device = device;
+        allocatorInfo.instance = instance;
+        allocatorInfo.pVulkanFunctions = nullptr; // optional
+        allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+
+        VK_CHECK_MSG(vmaCreateAllocator(&allocatorInfo, &allocator), "Failed to create memory allocator.");
+    }
+
+    void ResourceAllocator::fetchQueue(const VkDevice& device, const uint32_t familyQueueIndex) {
+        vkGetDeviceQueue(device, familyQueueIndex, 0, &transferQueue);
+    }
+
+    void ResourceAllocator::createCommandPool(const uint32_t familyQueueIndex) {
+        VkCommandPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        poolInfo.queueFamilyIndex = familyQueueIndex;
+
+        VK_CHECK_MSG(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool), "Failed to create resource allocator command pool.");
     }
 
     //***************************************************************************************//

@@ -49,7 +49,6 @@ namespace core {
 	vk::PhysicalDeviceAccelerationStructurePropertiesKHR EngineContext::asProperties;
 
     vk::CommandPool EngineContext::commandPool;
-    VmaAllocator EngineContext::allocator;
 
     vk::RenderPass EngineContext::renderPass = VK_NULL_HANDLE;
     vk::SwapchainKHR EngineContext::swapChain = VK_NULL_HANDLE;
@@ -76,8 +75,8 @@ namespace core {
             setupDeviceExtensions();
             selectPhysicalDevice();
             createLogicalDevice();
+            ResourceAllocator::setup(instance, physicalDevice, device, queryQueueFamilies(physicalDevice).graphicsFamily.value());
             createCommandPool();
-            createAllocator();
             createSwapChain();
             createImageViews();
             createRenderPass();
@@ -116,8 +115,8 @@ namespace core {
             device.destroyImageView(imageView);
         }
         device.destroySwapchainKHR(swapChain);
-        vmaDestroyAllocator(allocator);
         device.destroyCommandPool(commandPool);
+        ResourceAllocator::cleanup();
         device.destroy();
         instance.destroySurfaceKHR(surface);
         window.cleanup();
@@ -393,22 +392,6 @@ namespace core {
         }
 
         return support;
-    }
-
-    void EngineContext::createAllocator() {
-        VmaAllocatorCreateInfo allocatorInfo{};
-        allocatorInfo.vulkanApiVersion = ENGINE_GRAPHICS_API_VERSION;
-        allocatorInfo.physicalDevice = physicalDevice;
-        allocatorInfo.device = device;
-        allocatorInfo.instance = instance;
-        allocatorInfo.pVulkanFunctions = nullptr; // optional
-        allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-
-        if (vmaCreateAllocator(&allocatorInfo, &allocator) != VK_SUCCESS) {
-            throw std::runtime_error("Could not create memory allocator.");
-        }
-
-        ResourceAllocator::setup(device, allocator, commandPool, graphicsQueue);
     }
 
     void EngineContext::createSwapChain() {
