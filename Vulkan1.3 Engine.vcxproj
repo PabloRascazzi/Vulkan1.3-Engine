@@ -88,11 +88,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(VULKAN_SDK)\Third-Party\Include;libraries\include;</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;physx\LowLevel_static_64.lib;physx\LowLevelAABB_static_64.lib;physx\LowLevelDynamics_static_64.lib;physx\PhysX_64.lib;physx\PhysXCharacterKinematic_static_64.lib;physx\PhysXCommon_64.lib;physx\PhysXCooking_64.lib;physx\PhysXExtensions_static_64.lib;physx\PhysXFoundation_64.lib;physx\PhysXPvdSDK_static_64.lib;physx\PhysXTask_static_64.lib;physx\PhysXVehicle_static_64.lib;physx\PhysXVehicle2_static_64.lib;physx\SceneQuery_static_64.lib;physx\SimulationController_static_64.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib32;$(VULKAN_SDK)\Third-Party\Bin32;%(AdditionalLibraryDirectories);libraries\lib</AdditionalLibraryDirectories>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
@@ -106,11 +107,12 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(VULKAN_SDK)\Third-Party\Include;libraries\include;include;library</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;physx\LowLevel_static_64.lib;physx\LowLevelAABB_static_64.lib;physx\LowLevelDynamics_static_64.lib;physx\PhysX_64.lib;physx\PhysXCharacterKinematic_static_64.lib;physx\PhysXCommon_64.lib;physx\PhysXCooking_64.lib;physx\PhysXExtensions_static_64.lib;physx\PhysXFoundation_64.lib;physx\PhysXPvdSDK_static_64.lib;physx\PhysXTask_static_64.lib;physx\PhysXVehicle_static_64.lib;physx\PhysXVehicle2_static_64.lib;physx\SceneQuery_static_64.lib;physx\SimulationController_static_64.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;$(VULKAN_SDK)\Third-Party\Bin;%(AdditionalLibraryDirectories);libraries\lib</AdditionalLibraryDirectories>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
@@ -134,7 +136,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;physx\LowLevel_static_64.lib;physx\LowLevelAABB_static_64.lib;physx\LowLevelDynamics_static_64.lib;physx\PhysX_64.lib;physx\PhysXCharacterKinematic_static_64.lib;physx\PhysXCommon_64.lib;physx\PhysXCooking_64.lib;physx\PhysXExtensions_static_64.lib;physx\PhysXFoundation_64.lib;physx\PhysXPvdSDK_static_64.lib;physx\PhysXTask_static_64.lib;physx\PhysXVehicle_static_64.lib;physx\PhysXVehicle2_static_64.lib;physx\SceneQuery_static_64.lib;physx\SimulationController_static_64.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>libraries\lib;$(VULKAN_SDK)\Lib32;$(VULKAN_SDK)\Third-Party\Bin32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
@@ -156,7 +158,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;physx\LowLevel_static_64.lib;physx\LowLevelAABB_static_64.lib;physx\LowLevelDynamics_static_64.lib;physx\PhysX_64.lib;physx\PhysXCharacterKinematic_static_64.lib;physx\PhysXCommon_64.lib;physx\PhysXCooking_64.lib;physx\PhysXExtensions_static_64.lib;physx\PhysXFoundation_64.lib;physx\PhysXPvdSDK_static_64.lib;physx\PhysXTask_static_64.lib;physx\PhysXVehicle_static_64.lib;physx\PhysXVehicle2_static_64.lib;physx\SceneQuery_static_64.lib;physx\SimulationController_static_64.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>libraries\lib;$(VULKAN_SDK)\Lib;$(VULKAN_SDK)\Third-Party\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
