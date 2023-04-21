@@ -26,6 +26,12 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+# Build results exceptions
+!x64/
+!x64/[Dd]ebug
+!x64/[Rr]elease
+x64/[Dd]ebug/*
+x64/[Rr]elease/*
 
 # Visual Studio cache/options directory
 .vs/
@@ -41,6 +47,9 @@ bld/
 # Local History for Visual Studio Code
 .history/
 
-# Project Specific
+## Project Specific
 # Compiled shaders files
 resource/shaders/SPIR-V/*
+# Build result DLLs exceptions
+!x64/[Dd]ebug/*.dll
+!x64/[Rr]elease/*.dll

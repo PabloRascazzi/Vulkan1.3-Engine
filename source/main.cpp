@@ -17,8 +17,6 @@
 
 using namespace core;
 
-glm::mat4 getPerspective(float vertical_fov, float aspect_ratio, float n, float f);
-
 int main() {
     Input::setup();
 
