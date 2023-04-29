@@ -174,16 +174,21 @@ namespace core {
 		auto getHandle = [&] (int i) { return handles.data() + i * handleSize; };
 
 		// Map SBT buffer with SBT handles.
+		uint32_t offset = 0;
 		uint32_t handleIndex = 0; 
-		size_t offset = 0;
-		ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset); // Raygen
+
+		// Raygen
+		offset = 0;
+		ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
+		// Miss
 		offset += sbt.rgenRegion.size;
 		for (uint32_t i = 0; i < missCount; i++) {
-			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset); // Miss
+			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
 			offset += sbt.missRegion.stride;
 		}
+		// Hit
 		for (uint32_t i = 0; i < hitCount; i++) {
-			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset); // Hit
+			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
 			offset += sbt.hitRegion.stride;
 		}
 	}

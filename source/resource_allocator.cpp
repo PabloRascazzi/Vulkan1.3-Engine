@@ -71,8 +71,8 @@ namespace core {
         VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer.buffer, &buffer.allocation, &allocInfo));
     }
 
-    void ResourceAllocator::mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const VkDeviceSize& offset) {
-        VkDeviceSize* location;
+    void ResourceAllocator::mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const uint32_t& offset) {
+        uint8_t* location;
         vmaMapMemory(allocator, buffer.allocation, (void**)&location);
         memcpy(location+offset, data, size);
         vmaUnmapMemory(allocator, buffer.allocation);

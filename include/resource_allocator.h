@@ -23,7 +23,7 @@ namespace core {
 		static void cleanup();
 
 		static void createBuffer(const VkDeviceSize& size, Buffer& buffer, VkBufferUsageFlags usage);
-		static void mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const VkDeviceSize& offset = 0);
+		static void mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const uint32_t& offset = 0);
 		static void createAndStageBuffer(const VkDeviceSize& size, const void* data, Buffer& buffer, VkBufferUsageFlags usage);
 		static void createAndStageBuffer(const VkCommandBuffer& commandBuffer, const VkDeviceSize& size, const void* data, Buffer& srcBuffer, Buffer& dstBuffer, VkBufferUsageFlags usage);
 		static VkDeviceAddress getBufferDeviceAddress(const Buffer& buffer);
