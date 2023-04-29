@@ -162,6 +162,7 @@ namespace core {
 		VkDeviceSize sbtSize = sbt.rgenRegion.size + sbt.missRegion.size + sbt.hitRegion.size + sbt.callRegion.size;
 		VkBufferUsageFlags stbBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 		ResourceAllocator::createBuffer(sbtSize, sbt.buffer, stbBufferUsage);
+		Debugger::setObjectName(sbt.buffer.buffer, "SBT");
 		
 		// Find the SBT addresses of each group.
 		VkDeviceAddress sbtAddress = sbt.buffer.getDeviceAddress();

@@ -166,6 +166,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\camera.cpp" />
+    <ClCompile Include="source\debugger.cpp" />
     <ClCompile Include="source\descriptor_set.cpp" />
     <ClCompile Include="source\pipeline\post_pipeline.cpp" />
     <ClCompile Include="source\resource_allocator.cpp" />
@@ -184,6 +185,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\camera.h" />
+    <ClInclude Include="include\debugger.h" />
     <ClInclude Include="include\descriptor_set.h" />
     <ClInclude Include="include\pipeline\post_pipeline.h" />
     <ClInclude Include="include\resource_allocator.h" />

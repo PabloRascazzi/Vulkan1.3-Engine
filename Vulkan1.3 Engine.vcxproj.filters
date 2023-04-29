@@ -49,6 +49,9 @@
     <ClCompile Include="source\pipeline\raytracing_pipeline.cpp">
       <Filter>Source Files\Pipeline</Filter>
     </ClCompile>
+    <ClCompile Include="source\debugger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\window.h">
@@ -91,6 +94,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\debugger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

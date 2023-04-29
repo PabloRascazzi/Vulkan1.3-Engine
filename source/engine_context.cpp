@@ -26,6 +26,7 @@
 void load_extension_VK_KHR_acceleration_structure(VkDevice);
 void load_extension_VK_KHR_deferred_host_operations(VkDevice);
 void load_extension_VK_KHR_ray_tracing_pipeline(VkDevice);
+void load_extension_VK_EXT_debug_utils(VkInstance);
 
 #define VK_CHECK_MSG(func, msg) if(func != VK_SUCCESS) { throw std::runtime_error(msg); }
 #define VK_CHECK(func) VK_CHECK_MSG(func, "Vulkan error detected at line " + std::to_string(__LINE__) + " .");
@@ -76,6 +77,7 @@ namespace core {
             selectPhysicalDevice();
             createLogicalDevice();
             ResourceAllocator::setup(instance, physicalDevice, device, queryQueueFamilies(physicalDevice).graphicsFamily.value());
+            Debugger::setup(device);
             createCommandPool();
             createSwapChain();
             createImageViews();
@@ -134,6 +136,7 @@ namespace core {
         if (!SDL_Vulkan_GetInstanceExtensions((SDL_Window*)window.getHandle(), &extension_count, instanceExtensions.data())) {
             throw std::runtime_error("Could not get the names of required instance extensions from SDL.");
         }
+        instanceExtensions.push_back("VK_EXT_debug_utils");
     }
 
     void EngineContext::setupValidationLayers() {
@@ -170,6 +173,9 @@ namespace core {
         catch (const std::exception& e) {
             throw std::runtime_error("Could not create a Vulkan instance: " + *e.what());
         }
+
+        // load VK instance extensions.
+        load_extension_VK_EXT_debug_utils(instance);
     }
 
     void EngineContext::createSurface() {
