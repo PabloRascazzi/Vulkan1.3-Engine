@@ -151,7 +151,7 @@ namespace core {
 		sbt.hitRegion.stride = handleSizeAligned;
 		sbt.hitRegion.size = alignUp(hitCount * handleSizeAligned, EngineContext::getRayTracingProperties().shaderGroupBaseAlignment);
 
-		// Get the shader group handles.
+	    // Get the shader group handles.
 		uint32_t dataSize = handleCount * handleSize;
 		std::vector<uint8_t> handles(dataSize);
 		if (vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, handleCount, dataSize, handles.data()) != VK_SUCCESS) {
@@ -181,15 +181,16 @@ namespace core {
 		offset = 0;
 		ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
 		// Miss
-		offset += sbt.rgenRegion.size;
+		offset = static_cast<uint32_t>(sbt.rgenRegion.size);
 		for (uint32_t i = 0; i < missCount; i++) {
 			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
-			offset += sbt.missRegion.stride;
+			offset += static_cast<uint32_t>(sbt.missRegion.stride);
 		}
 		// Hit
+		offset = static_cast<uint32_t>(sbt.rgenRegion.size + sbt.missRegion.size);
 		for (uint32_t i = 0; i < hitCount; i++) {
 			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
-			offset += sbt.hitRegion.stride;
+			offset += static_cast<uint32_t>(sbt.hitRegion.stride);
 		}
 	}
 }

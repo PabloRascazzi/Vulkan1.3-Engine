@@ -41,7 +41,7 @@ namespace core {
 
 		std::vector<Object>& getObjects() { return objects; }
 		TopLevelAccelerationStructure& getTLAS() { return tlas; }
-		std::vector<ObjDesc>& getObjDescriptions() { return objDescriptions; }
+		Buffer& getObjDescriptions() { return objDescBuffer; }
 
 	private:
 		Camera* mainCamera;
@@ -51,6 +51,7 @@ namespace core {
 		std::vector<ObjDesc> objDescriptions;
 
 		TopLevelAccelerationStructure tlas;
+		Buffer objDescBuffer;
 
 		void buildAccelerationStructure(std::vector<Object>& objects, std::unordered_set<Mesh*> meshes);
 		void createObjectDescriptions(std::vector<Object>& objects);

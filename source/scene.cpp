@@ -23,6 +23,8 @@ namespace core {
 
 		ResourceAllocator::destroyBuffer(tlas.buffer);
 		EngineContext::getDevice().destroyAccelerationStructureKHR(tlas.handle);
+
+		ResourceAllocator::destroyBuffer(objDescBuffer);
 	}
 
 	void Scene::update() {
@@ -60,6 +62,9 @@ namespace core {
 			ObjDesc desc = { vertexAddress, indexAddress };
 			objDescriptions.push_back(desc);
 		}
+
+		VkDeviceSize size = sizeof(ObjDesc) * static_cast<uint64_t>(objDescriptions.size());
+		ResourceAllocator::createAndStageBuffer(size, objDescriptions.data(), objDescBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	}
 
 	struct BlasCreateInfo {
