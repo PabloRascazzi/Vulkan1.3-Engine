@@ -1,5 +1,5 @@
 #include <descriptor_set.h>
-#include <engine_context.h>
+#include <engine_globals.h>
 
 namespace core {
 

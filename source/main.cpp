@@ -1,4 +1,6 @@
+#include <engine_globals.h>
 #include <engine_context.h>
+#include <renderer.h>
 #include <input.h>
 #include <mesh.h>
 #include <camera.h>
@@ -21,9 +23,9 @@ int main() {
     Input::setup();
 
     // This is where most initialization for a program should be performed
-    EngineContext::getWindow()->setKeyCallback(Input::keyCallback);
-    EngineContext::getWindow()->setMouseButtonCallback(Input::mouseButtonCallback);
-    EngineContext::getWindow()->setMouseMotionCallback(Input::mouseMotionCallback);
+    EngineContext::getWindow().setKeyCallback(Input::keyCallback);
+    EngineContext::getWindow().setMouseButtonCallback(Input::mouseButtonCallback);
+    EngineContext::getWindow().setMouseMotionCallback(Input::mouseMotionCallback);
     EngineContext::setup();
 
     // Print physical device name.
@@ -36,11 +38,11 @@ int main() {
     std::cout << "Present Queue:  " << EngineContext::getPresentQueue() << std::endl;
 
     // Print Device Properties.
-    std::cout << "Max Bound Descriptor Sets: " << EngineContext::getDeviceProperties().limits.maxBoundDescriptorSets << std::endl;
-    std::cout << "Max Push Constant Size: " << EngineContext::getDeviceProperties().limits.maxPushConstantsSize << std::endl;
-    std::cout << "Max Recursion Depth: " << EngineContext::getRayTracingProperties().maxRayRecursionDepth << std::endl;
-    std::cout << "Max Geometry Count: " << EngineContext::getAccelerationStructureProperties().maxGeometryCount << std::endl;
-    std::cout << "Max Instance Count: " << EngineContext::getAccelerationStructureProperties().maxInstanceCount << std::endl;
+    std::cout << "Max Bound Descriptor Sets: " << EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.maxBoundDescriptorSets << std::endl;
+    std::cout << "Max Push Constant Size: " << EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.maxPushConstantsSize << std::endl;
+    std::cout << "Max Recursion Depth: " << EngineContext::getPhysicalDeviceProperties().raytracingProperties.maxRayRecursionDepth << std::endl;
+    std::cout << "Max Geometry Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxGeometryCount << std::endl;
+    std::cout << "Max Instance Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxInstanceCount << std::endl;
 
     // Create Mesh.
     Mesh* quad = ResourcePrimitives::createQuad(2.0f);
@@ -54,7 +56,7 @@ int main() {
     Object* mirror2  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f,  0.0f, -2.5f)) * (glm::rotate(glm::mat4(1.0f), glm::radians(135.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
     Object* demoCube = scene->addObject(cube, glm::translate(glm::mat4(1.0f), glm::vec3( 0.0f, -0.5f, -5.0f)), 0);
     Object* floor    = scene->addObject(plane, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
-    Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow()->getAspectRatio());
+    Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow().getAspectRatio());
     scene->setup();
 
     // Create DescriptorSets.
@@ -84,9 +86,9 @@ int main() {
     cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
 
     // Create Pipeline.
-    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), "shader", EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
+    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), "shader", Renderer::getRenderPass(), Renderer::getSwapChainExtent());
     RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice(), std::vector<DescriptorSet*>{rtDescSet, globalDescSet});
-    PostPipeline* postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{postDescSet}, EngineContext::getRenderPass(), EngineContext::getSwapChainExtent());
+    PostPipeline* postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{postDescSet}, Renderer::getRenderPass(), Renderer::getSwapChainExtent());
 
     // Fill DescriptorSets and create out images for ray-tracing render pass.
     std::vector<Image> outImages;
@@ -104,7 +106,7 @@ int main() {
 
         // Upload ray-tracing render pass output image uniform.
         Image outImage;
-        ResourceAllocator::createImage2D(EngineContext::getSwapChainExtent(), VK_FORMAT_R32G32B32A32_SFLOAT, outImage, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+        ResourceAllocator::createImage2D(Renderer::getSwapChainExtent(), VK_FORMAT_R32G32B32A32_SFLOAT, outImage, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
         ResourceAllocator::createImageView2D(VK_FORMAT_R32G32B32A32_SFLOAT, outImage);
         ResourceAllocator::createSampler2D(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, outImage);
         EngineContext::transitionImageLayout(outImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
@@ -161,19 +163,19 @@ int main() {
         cameraUBO.viewInverse = scene->getMainCamera().getViewInverseMatrix();
         cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
 
-        ResourceAllocator::mapDataToBuffer(cameraBuffers[EngineContext::getCurrentFrame()], sizeof(CameraUniformBufferObject), &cameraUBO);
+        ResourceAllocator::mapDataToBuffer(cameraBuffers[Renderer::getCurrentFrame()], sizeof(CameraUniformBufferObject), &cameraUBO);
 
         VkDescriptorBufferInfo camDescInfo{};
-        camDescInfo.buffer = cameraBuffers[EngineContext::getCurrentFrame()].buffer;
+        camDescInfo.buffer = cameraBuffers[Renderer::getCurrentFrame()].buffer;
         camDescInfo.offset = 0;
         camDescInfo.range = sizeof(CameraUniformBufferObject);
         globalDescSet->writeBuffer(0, camDescInfo);
 
         // Render using correct pipelines.
         if (raytrace) {
-            EngineContext::raytrace((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene, outImages);
+            Renderer::raytrace((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene, outImages);
         } else {
-            EngineContext::rasterize((Pipeline&)*pipeline, *scene);
+            Renderer::rasterize((Pipeline&)*pipeline, *scene);
         }
 
         // Reset Inputs.

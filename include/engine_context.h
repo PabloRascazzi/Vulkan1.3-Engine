@@ -10,7 +10,6 @@
 #endif
 
 #include <vulkan/vulkan.hpp>
-#define ENGINE_GRAPHICS_API_VERSION VK_API_VERSION_1_3
 #include "vma/vk_mem_alloc.h"
 
 #include <window.h>
@@ -27,8 +26,6 @@
 #include <debugger.h>
 
 namespace core {
-
-	const int MAX_FRAMES_IN_FLIGHT = 2;
 
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;
@@ -53,16 +50,19 @@ namespace core {
 		}
 	};
 
+	struct PhysicalDeviceProperties {
+		VkPhysicalDeviceProperties deviceProperties;
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytracingProperties;
+		VkPhysicalDeviceAccelerationStructurePropertiesKHR accelStructProperties;
+	};
+
 	class EngineContext {
 	public:
 		static void setup();
 		static bool update();
 		static void cleanup();
 
-		static void rasterize(Pipeline& pipeline, Scene& scene);
-		static void raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene, std::vector<Image>& outImages);
-
-		static Window* getWindow() { return &window; }
+		static Window& getWindow() { return window; }
 		static vk::Instance getInstance() { return instance; }
 		static vk::SurfaceKHR getSurface() { return surface; }
 
@@ -71,21 +71,13 @@ namespace core {
 		static vk::Queue getGraphicsQueue() { return graphicsQueue; }
 		static vk::Queue getPresentQueue() { return presentQueue; }
 
-		static vk::PhysicalDeviceProperties getDeviceProperties() { return deviceProperties; }
-		static vk::PhysicalDeviceRayTracingPipelinePropertiesKHR getRayTracingProperties() { return rtProperties; }
-		static vk::PhysicalDeviceAccelerationStructurePropertiesKHR getAccelerationStructureProperties() { return asProperties; }
-
-		static vk::RenderPass getRenderPass() { return renderPass; }
-		static vk::SwapchainKHR getSwapChain() { return swapChain; }
-		static std::vector<vk::Image> getSwapChainImages() { return swapChainImages; }
-		static vk::Format getSwapChainImageFormat() { return swapChainImageFormat; }
-		static vk::Extent2D getSwapChainExtent() { return swapChainExtent; }
+		static PhysicalDeviceProperties getPhysicalDeviceProperties() { return physicalDeviceProperties; }
+		static QueueFamilyIndices getQueueFamilyIndices() { return queryQueueFamilies(physicalDevice); }
+		static SwapChainSupport getSwapChainSupport() { return querySwapChainSupport(physicalDevice); }
 
 		static void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
 		static void transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
 		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
-
-		static uint32_t getCurrentFrame() { return currentFrame; }
 
 		static void exit();
 
@@ -97,31 +89,13 @@ namespace core {
 		static std::vector<const char*> deviceExtensions;
 		static std::vector<const char*> layers;
 
+		static PhysicalDeviceProperties physicalDeviceProperties;
 		static vk::PhysicalDevice physicalDevice;
 		static vk::Device device;
 		static vk::Queue graphicsQueue;
 		static vk::Queue presentQueue;
 
-		static vk::PhysicalDeviceProperties deviceProperties;
-		static vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties;
-		static vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProperties;
-
 		static vk::CommandPool commandPool;
-
-		static vk::RenderPass renderPass;
-		static vk::SwapchainKHR swapChain;
-		static std::vector<vk::Image> swapChainImages;
-		static std::vector<vk::ImageView> swapChainImageViews;
-		static vk::Format swapChainImageFormat;
-		static vk::Extent2D swapChainExtent;
-		static std::vector<vk::Framebuffer> swapChainFramebuffers;
-
-		static std::vector<vk::CommandBuffer> commandBuffers;
-		static std::vector<vk::Semaphore> imageAvailableSemaphores;
-		static std::vector<vk::Semaphore> renderFinishedSemaphores;
-		static std::vector<vk::Fence> inFlightFences;
-
-		static uint32_t currentFrame;
 
 		static void setupInstanceExtensions();
 		static void setupValidationLayers();
@@ -130,24 +104,11 @@ namespace core {
 		static void setupDeviceExtensions();
 		static void selectPhysicalDevice();
 		static void createLogicalDevice();
-		static void createSwapChain();
-		static void createRenderPass();
-		static void createImageViews();
 		static void createCommandPool();
-		static void createFramebuffers();
-		static void createFrameCommandBuffers();
-		static void createSyncObjects();
-
-		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Scene& scene);
-		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, std::vector<Image>& outImages, uint32_t imageIndex);
 
 		static bool isDeviceSuitable(VkPhysicalDevice device);
 		static QueueFamilyIndices queryQueueFamilies(VkPhysicalDevice device);
 		static bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 		static SwapChainSupport querySwapChainSupport(VkPhysicalDevice device);
-
-		static VkSurfaceFormatKHR selectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> availableFormats);
-		static VkPresentModeKHR selectSwapChainPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
-		static VkExtent2D selectSwapChainExtent(const VkSurfaceCapabilitiesKHR capabilities);
 	};
 }

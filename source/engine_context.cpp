@@ -1,7 +1,9 @@
+#include <engine_globals.h>
 #include <engine_context.h>
 #include <time.h>
 #include <pipeline/standard_pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
+#include <renderer.h>
 
 #include <vulkan/vulkan.hpp>
 #define VMA_IMPLEMENTATION
@@ -28,9 +30,6 @@ void load_extension_VK_KHR_deferred_host_operations(VkDevice);
 void load_extension_VK_KHR_ray_tracing_pipeline(VkDevice);
 void load_extension_VK_EXT_debug_utils(VkInstance);
 
-#define VK_CHECK_MSG(func, msg) if(func != VK_SUCCESS) { throw std::runtime_error(msg); }
-#define VK_CHECK(func) VK_CHECK_MSG(func, "Vulkan error detected at line " + std::to_string(__LINE__) + " .");
-
 namespace core {
 
     Window EngineContext::window;
@@ -40,31 +39,13 @@ namespace core {
     std::vector<const char*> EngineContext::deviceExtensions;
     std::vector<const char*> EngineContext::layers;
 
+    PhysicalDeviceProperties EngineContext::physicalDeviceProperties;
     vk::PhysicalDevice EngineContext::physicalDevice = VK_NULL_HANDLE;
     vk::Device EngineContext::device = VK_NULL_HANDLE;
     vk::Queue EngineContext::graphicsQueue = VK_NULL_HANDLE;
     vk::Queue EngineContext::presentQueue = VK_NULL_HANDLE;
 
-    vk::PhysicalDeviceProperties EngineContext::deviceProperties;
-	vk::PhysicalDeviceRayTracingPipelinePropertiesKHR EngineContext::rtProperties;
-	vk::PhysicalDeviceAccelerationStructurePropertiesKHR EngineContext::asProperties;
-
     vk::CommandPool EngineContext::commandPool;
-
-    vk::RenderPass EngineContext::renderPass = VK_NULL_HANDLE;
-    vk::SwapchainKHR EngineContext::swapChain = VK_NULL_HANDLE;
-    std::vector<vk::Image> EngineContext::swapChainImages;
-    std::vector<vk::ImageView> EngineContext::swapChainImageViews;
-    vk::Format EngineContext::swapChainImageFormat;
-    vk::Extent2D EngineContext::swapChainExtent;
-    std::vector<vk::Framebuffer> EngineContext::swapChainFramebuffers;
-
-    std::vector<vk::CommandBuffer> EngineContext::commandBuffers;
-	std::vector<vk::Semaphore> EngineContext::imageAvailableSemaphores;
-	std::vector<vk::Semaphore> EngineContext::renderFinishedSemaphores;
-	std::vector<vk::Fence> EngineContext::inFlightFences;
-
-    uint32_t EngineContext::currentFrame = 0;
 
     void EngineContext::setup() {
         try {
@@ -79,12 +60,7 @@ namespace core {
             ResourceAllocator::setup(instance, physicalDevice, device, queryQueueFamilies(physicalDevice).graphicsFamily.value());
             Debugger::setup(device);
             createCommandPool();
-            createSwapChain();
-            createImageViews();
-            createRenderPass();
-            createFramebuffers();
-            createFrameCommandBuffers();
-            createSyncObjects();
+            Renderer::setup(device, graphicsQueue, presentQueue);
         }
         catch (const std::runtime_error& e) {
             std::cout << e.what() << std::endl;
@@ -104,19 +80,7 @@ namespace core {
 
     void EngineContext::cleanup() {
         // Destroy all vulkan objects
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            device.destroySemaphore(imageAvailableSemaphores[i]);
-            device.destroySemaphore(renderFinishedSemaphores[i]);
-            device.destroyFence(inFlightFences[i]);
-        }
-        for (auto framebuffer : swapChainFramebuffers) {
-            device.destroyFramebuffer(framebuffer);
-        }
-        device.destroyRenderPass(renderPass);
-        for (auto imageView : swapChainImageViews) {
-            device.destroyImageView(imageView);
-        }
-        device.destroySwapchainKHR(swapChain);
+        Renderer::cleanup();
         device.destroyCommandPool(commandPool);
         ResourceAllocator::cleanup();
         device.destroy();
@@ -238,9 +202,7 @@ namespace core {
         deviceProperties.pNext = &raytracingProperties;
 
         vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
-        EngineContext::deviceProperties = deviceProperties.properties;
-        EngineContext::rtProperties = raytracingProperties;
-        EngineContext::asProperties = accelProperties;
+        EngineContext::physicalDeviceProperties = {deviceProperties.properties, raytracingProperties, accelProperties};
     }
 
     void EngineContext::createLogicalDevice() {
@@ -400,171 +362,6 @@ namespace core {
         return support;
     }
 
-    void EngineContext::createSwapChain() {
-        QueueFamilyIndices indices = queryQueueFamilies(physicalDevice);
-        SwapChainSupport swapChainSupport = querySwapChainSupport(physicalDevice);
-
-        VkSurfaceFormatKHR surfaceFormat = selectSwapChainSurfaceFormat(swapChainSupport.formats);
-        VkPresentModeKHR presentMode = selectSwapChainPresentMode(swapChainSupport.presentModes);
-        VkExtent2D extent = selectSwapChainExtent(swapChainSupport.capabilities);
-
-        uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
-        // Make sure the image count does not exceed the maximum. Special value of 0 means no maximum.
-        if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
-            imageCount = swapChainSupport.capabilities.maxImageCount;
-        }
-
-        VkSwapchainCreateInfoKHR createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = surface;
-        createInfo.minImageCount = imageCount;
-        createInfo.imageFormat = surfaceFormat.format;
-        createInfo.imageColorSpace = surfaceFormat.colorSpace;
-        createInfo.imageExtent = extent;
-        createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        if (indices.graphicsFamily != indices.presentFamily) {
-            uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
-            createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-            createInfo.queueFamilyIndexCount = 2;
-            createInfo.pQueueFamilyIndices = queueFamilyIndices;
-        }
-        else {
-            createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            createInfo.queueFamilyIndexCount = 0;
-            createInfo.pQueueFamilyIndices = nullptr;
-        }
-        createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        createInfo.presentMode = presentMode;
-        createInfo.clipped = VK_TRUE;
-        createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-        VkSwapchainKHR swapChain;
-        if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
-            throw std::runtime_error("Could not create swap chain.");
-        }
-        EngineContext::swapChain = swapChain;
-        EngineContext::swapChainImageFormat = (vk::Format)(surfaceFormat.format);
-        EngineContext::swapChainExtent = extent;
-
-        // Fetch all swap chain images handles.
-        vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
-        swapChainImages.resize(imageCount);
-        vkGetSwapchainImagesKHR(device, swapChain, &imageCount, (VkImage*)swapChainImages.data());
-    }
-
-    void EngineContext::createImageViews() {
-        swapChainImageViews.resize(swapChainImages.size());
-
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
-            VkImageViewCreateInfo createInfo{};
-            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            createInfo.image = swapChainImages[i];
-            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            createInfo.format = (VkFormat)swapChainImageFormat;
-            createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            createInfo.subresourceRange.baseMipLevel = 0;
-            createInfo.subresourceRange.levelCount = 1;
-            createInfo.subresourceRange.baseArrayLayer = 0;
-            createInfo.subresourceRange.layerCount = 1;
-
-            VkImageView imageView;
-            if (vkCreateImageView(device, &createInfo, nullptr, &imageView) != VK_SUCCESS) {
-                throw std::runtime_error("Could not create image views.");
-            }
-            swapChainImageViews[i] = imageView;
-        }
-    }
-
-    void EngineContext::createRenderPass() {
-	    VkAttachmentDescription colorAttachmentDesc{};
-	    colorAttachmentDesc.format = (VkFormat)swapChainImageFormat;
-	    colorAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
-	    colorAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	    colorAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	    colorAttachmentDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	    colorAttachmentDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-	    VkAttachmentReference colorAttachmentRef{};
-	    colorAttachmentRef.attachment = 0;
-	    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	    VkSubpassDescription subpass{};
-	    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	    subpass.colorAttachmentCount = 1;
-	    subpass.pColorAttachments = &colorAttachmentRef;
-
-	    VkSubpassDependency dependency{};
-	    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	    dependency.dstSubpass = 0;
-	    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	    dependency.srcAccessMask = 0;
-	    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	    VkRenderPassCreateInfo renderPassInfo{};
-	    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	    renderPassInfo.attachmentCount = 1;
-	    renderPassInfo.pAttachments = &colorAttachmentDesc;
-	    renderPassInfo.subpassCount = 1;
-	    renderPassInfo.pSubpasses = &subpass;
-	    renderPassInfo.dependencyCount = 1;
-	    renderPassInfo.pDependencies = &dependency;
-
-	    VkRenderPass renderPass;
-	    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-		    throw std::runtime_error("Could not create render pass.");
-	    }
-	    EngineContext::renderPass = renderPass;
-    }
-
-    VkSurfaceFormatKHR EngineContext::selectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> availableFormats) {
-        // Look for desired surface format from list of available formats.
-        for (const auto& availableFormat : availableFormats) {
-            if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-                return availableFormat;
-            }
-        }
-        // Return first available format if could not find desired one.
-        return availableFormats[0];
-    }
-
-    VkPresentModeKHR EngineContext::selectSwapChainPresentMode(const std::vector<VkPresentModeKHR> presentModes) {
-        // Look for desired surface present mode from list of available present modes.
-        for (const auto& availablePresentMode : presentModes) {
-            if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-                return availablePresentMode;
-            }
-        }
-        // Return first available present mode if could not find desired one.
-        return presentModes[0];
-    }
-
-    VkExtent2D EngineContext::selectSwapChainExtent(const VkSurfaceCapabilitiesKHR capabilities) {
-        if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-            return capabilities.currentExtent;
-        }
-        else {
-            int width, height;
-            SDL_Vulkan_GetDrawableSize((SDL_Window*)window.getHandle(), &width, &height);
-
-            VkExtent2D extent = {
-                static_cast<uint32_t>(width),
-                static_cast<uint32_t>(height)
-            };
-
-            extent.width = std::clamp(extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-            extent.height = std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-
-            return extent;
-        }
-    }
-
     void EngineContext::createCommandPool() {
         QueueFamilyIndices queueFamilyIndices = queryQueueFamilies(physicalDevice);
 
@@ -580,29 +377,6 @@ namespace core {
         EngineContext::commandPool = commandPool;
     }
 
-    void EngineContext::createFramebuffers() {
-        swapChainFramebuffers.resize(swapChainImageViews.size());
-
-        for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-            VkImageView attachments[] = {swapChainImageViews[i]};
-
-            VkFramebufferCreateInfo framebufferInfo{};
-            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = renderPass;
-            framebufferInfo.attachmentCount = 1;
-            framebufferInfo.pAttachments = attachments;
-            framebufferInfo.width = swapChainExtent.width;
-            framebufferInfo.height = swapChainExtent.height;
-            framebufferInfo.layers = 1;
-
-            VkFramebuffer framebuffer;
-            if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffer) != VK_SUCCESS) {
-                throw std::runtime_error("Could not create framebuffer.");
-            }
-            swapChainFramebuffers[i] = framebuffer;
-        }
-    }
-
     void EngineContext::createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount) {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -613,149 +387,6 @@ namespace core {
         if (vkAllocateCommandBuffers(device, &allocInfo, buffer) != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate command buffers.");
         }
-    }
-
-    void EngineContext::createFrameCommandBuffers() {
-        commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        createCommandBuffer((VkCommandBuffer*)commandBuffers.data(), MAX_FRAMES_IN_FLIGHT);
-    }
-
-    void EngineContext::createSyncObjects() {
-        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-
-        VkSemaphoreCreateInfo semaphoreInfo{};
-        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        
-        VkFenceCreateInfo fenceInfo{};
-        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Start fence in signaled state.
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, (VkSemaphore*)&imageAvailableSemaphores[i]) != VK_SUCCESS ||
-                vkCreateSemaphore(device, &semaphoreInfo, nullptr, (VkSemaphore*)&renderFinishedSemaphores[i]) != VK_SUCCESS ||
-                vkCreateFence(device, &fenceInfo, nullptr, (VkFence*)&inFlightFences[i]) != VK_SUCCESS) {
-                throw std::runtime_error("Could not create sync objects.");
-            }
-        }
-    }
-
-    void EngineContext::recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Scene& scene) {
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("Could not begin recording command buffer.");
-        }
-
-        // Begin render pass
-        VkRenderPassBeginInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassInfo.renderPass = renderPass;
-        renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-        renderPassInfo.renderArea.offset = {0,0};
-        renderPassInfo.renderArea.extent = swapChainExtent;
-        VkClearValue clearColor = {{{0.1f, 0.1f, 0.1f, 1.0f}}};
-        renderPassInfo.clearValueCount = 1;
-        renderPassInfo.pClearValues = &clearColor;
-
-        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        // Bind pipeline
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getHandle());
-
-        // Set Viewport and Scissor
-        VkViewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(swapChainExtent.width);
-        viewport.height = static_cast<float>(swapChainExtent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-        VkRect2D scissor{};
-        scissor.offset = {0,0};
-        scissor.extent = swapChainExtent;
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-        for (const auto& object : scene.getObjects()) {
-            // Bind vertex buffer
-            VkBuffer vertexBuffers[] = {object.mesh->getVertexBuffer().buffer};
-            VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-            // Bind index buffer
-            vkCmdBindIndexBuffer(commandBuffer, object.mesh->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-
-            StandardPushConstant constant;
-            constant.world = object.transform;
-            constant.view = scene.getMainCamera().getViewMatrix();
-            constant.proj = scene.getMainCamera().getProjectionMatrix();
-            // TEST - static auto startTime = std::chrono::high_resolution_clock::now();
-            // TEST - auto currentTime = std::chrono::high_resolution_clock::now();
-            // TEST - float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-            // TEST - constant.world = glm::rotate(object.transform, time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-            // Upload push constants
-            vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
-
-            // Draw
-            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(object.mesh->getIndexCount()), 1, 0, 0, 0);
-        }
-
-        // End render pass
-        vkCmdEndRenderPass(commandBuffer);
-
-        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to record command buffer.");
-        }
-    }
-
-    void EngineContext::rasterize(Pipeline& pipeline, Scene& scene) {
-        // Wait until previous frame has finished.
-        device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-        device.resetFences(1, &inFlightFences[currentFrame]);
-
-        // Acquire next image from swap chain.
-        uint32_t imageIndex;
-        device.acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
-
-        // Record command buffer.
-        commandBuffers[currentFrame].reset();
-        recordRasterizeCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, pipeline, scene);
-
-        // Submit command buffer.
-        vk::SubmitInfo submitInfo{};
-        vk::Semaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = waitSemaphores;
-        vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
-        submitInfo.pWaitDstStageMask = waitStages;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
-        vk::Semaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = signalSemaphores;
-
-        if (graphicsQueue.submit(1, (vk::SubmitInfo*)&submitInfo, inFlightFences[currentFrame]) != vk::Result::eSuccess) {
-            throw std::runtime_error("Failed to submit draw rasterized command buffer.");
-        }
-
-        // Presentation.
-        vk::PresentInfoKHR presentInfo{};
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
-        vk::SwapchainKHR swapChains[] = {swapChain};
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &imageIndex;
-        presentInfo.pResults = nullptr;
-
-        presentQueue.presentKHR(&presentInfo);
-
-        // Set next frame index.
-        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
     void EngineContext::transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout) {
@@ -852,130 +483,6 @@ namespace core {
         }
 
         vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-    }
-
-    void EngineContext::recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, std::vector<Image>& outImages, uint32_t imageIndex) {
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("Could not begin recording command buffer.");
-        }
-
-        // Bind pipeline.
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.getHandle());
-        
-        // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets = rtPipeline.getDescriptorSetHandles();
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
-        
-        // Upload push constants.
-        RayTracingPushConstant constant;
-        constant.clearColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-        vkCmdPushConstants(commandBuffer, rtPipeline.getLayout(), constant.getShaderStageFlags(), 0, constant.getSize(), &constant);
-
-        // Draw ray-traced.
-        SBTWrapper sbt = ((RayTracingPipeline*)&rtPipeline)->getSBT();
-        uint32_t width = swapChainExtent.width;
-        uint32_t height = swapChainExtent.height;
-        vkCmdTraceRaysKHR(commandBuffer, &sbt.rgenRegion, &sbt.missRegion, &sbt.hitRegion, &sbt.callRegion, width, height, 1);
-
-        // Begin render pass
-        VkRenderPassBeginInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassInfo.renderPass = renderPass;
-        renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-        renderPassInfo.renderArea.offset = {0,0};
-        renderPassInfo.renderArea.extent = swapChainExtent;
-        VkClearValue clearColor = {{{0.1f, 0.1f, 0.1f, 1.0f}}};
-        renderPassInfo.clearValueCount = 1;
-        renderPassInfo.pClearValues = &clearColor;
-
-        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        // Bind pipeline
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline.getHandle());
-
-        // Set Viewport and Scissor
-        VkViewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(swapChainExtent.width);
-        viewport.height = static_cast<float>(swapChainExtent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-        VkRect2D scissor{};
-        scissor.offset = {0,0};
-        scissor.extent = swapChainExtent;
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-        // Bind descriptor sets.
-        std::vector<VkDescriptorSet> postDescSets = postPipeline.getDescriptorSetHandles();
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline.getLayout(), 0, static_cast<uint32_t>(postDescSets.size()), postDescSets.data(), 0, nullptr);
-
-        // Draw
-        vkCmdDraw(commandBuffer, 4, 1, 0, 0);
-
-        // End render pass
-        vkCmdEndRenderPass(commandBuffer);
-
-        // End command buffer.
-        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to record command buffer.");
-        }
-    }
-
-    void EngineContext::raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene, std::vector<Image>& outImages) {
-        // Wait until previous frame has finished.
-        VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
-        VK_CHECK(vkResetFences(device, 1, (VkFence*)&inFlightFences[currentFrame]));
-        
-        // Set descriptor set currentFrame.
-        DescriptorSet::setCurrentFrame(currentFrame);
-
-        // Acquire next image from swap chain.
-        uint32_t imageIndex;
-        VK_CHECK(vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex));
-
-        // Record command buffer.
-        commandBuffers[currentFrame].reset();
-        recordRaytraceCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], rtPipeline, postPipeline, outImages, imageIndex);
-
-        // Submit command buffer.
-        VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = waitSemaphores;
-        submitInfo.pWaitDstStageMask = waitStages;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = (VkCommandBuffer*)&commandBuffers[currentFrame];
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = signalSemaphores;
-
-        VK_CHECK_MSG(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit draw ray-traced command buffer.");
-
-        // Presentation.
-        VkSwapchainKHR swapChains[] = { swapChain };
-
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &imageIndex;
-        presentInfo.pResults = nullptr;
-
-        VK_CHECK(vkQueuePresentKHR(presentQueue, &presentInfo));
-
-        // Set next frame index.
-        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
     void EngineContext::exit() {

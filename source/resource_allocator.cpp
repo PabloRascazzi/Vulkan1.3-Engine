@@ -1,4 +1,5 @@
 #include <resource_allocator.h>
+#include <engine_globals.h>
 #include <engine_context.h>
 
 #define VK_CHECK_MSG(func, msg) if(func != VK_SUCCESS) { throw std::runtime_error(msg); }
@@ -223,7 +224,7 @@ namespace core {
         samplerInfo.addressModeV = addressMode;
         samplerInfo.addressModeW = addressMode;
         samplerInfo.anisotropyEnable = enableAnisotropy;
-        samplerInfo.maxAnisotropy = EngineContext::getDeviceProperties().limits.maxSamplerAnisotropy;
+        samplerInfo.maxAnisotropy = EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.maxSamplerAnisotropy;
         samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
         samplerInfo.unnormalizedCoordinates = VK_FALSE;
         samplerInfo.compareEnable = VK_FALSE;
