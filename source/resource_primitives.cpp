@@ -18,7 +18,9 @@ namespace core {
             0, 1, 2, 2, 3, 0,
         };
 
-        return new Mesh((float*)vertices, vertexCount, indices, indexCount);
+        uint32_t indexCountList[] = {indexCount};
+        uint32_t* indicesList[] = {indices};
+        return new Mesh((float*)vertices, vertexCount, 1, indicesList, indexCountList);
 	}
 
 	Mesh* ResourcePrimitives::createPlane(const uint32_t& edgeCount, const float& edgeLength) {
@@ -57,7 +59,9 @@ namespace core {
             }
         }
 
-        return new Mesh((float*)vertices, vertexCount, indices, indexCount);
+        uint32_t indexCountList[] = {indexCount};
+        uint32_t* indicesList[] = {indices};
+        return new Mesh((float*)vertices, vertexCount, 1, indicesList, indexCountList);
 	}
 
 	Mesh* ResourcePrimitives::createCube(const float& edgeLength) {
@@ -84,6 +88,8 @@ namespace core {
             0, 4, 5, 5, 1, 0, // Bottom
         };
 
-        return new Mesh((float*)vertices, vertexCount, indices, indexCount);
+        uint32_t indexCountList[] = {indexCount};
+        uint32_t* indicesList[] = {indices};
+        return new Mesh((float*)vertices, vertexCount, 1, indicesList, indexCountList);
 	}
 }

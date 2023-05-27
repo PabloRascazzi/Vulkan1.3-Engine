@@ -7,11 +7,37 @@ namespace core {
 		return buffer.getDeviceAddress();
 	}
 
-	Mesh::Mesh(float* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount) {
-		this->vertexCount = vertexCount;
+	Mesh::Submesh::Submesh(uint32_t* indices, uint32_t indexCount) {
 		this->indexCount = indexCount;
-		createVertexBuffer((Vertex*)vertices);
-		createIndexBuffer(indices);
+		createIndexBuffer(indices, indexCount, this->indexBuffer);
+	}
+
+	Mesh::Submesh::~Submesh() {
+		cleanup();
+	}
+
+	void Mesh::Submesh::cleanup() {
+		ResourceAllocator::destroyBuffer(indexBuffer);
+		if (blas.handle != VK_NULL_HANDLE) {
+			ResourceAllocator::destroyBuffer(blas.buffer);
+			EngineContext::getDevice().destroyAccelerationStructureKHR(blas.handle);
+		}
+	}
+
+	Mesh::Mesh(float* vertices, uint32_t vertexCount, uint32_t submeshCount, uint32_t** indicesList, uint32_t* indexCountList) {
+		// Create vertices
+		this->vertexCount = vertexCount;
+		createVertexBuffer((Vertex*)vertices, vertexCount, this->vertexBuffer);
+
+		// Create Submeshes
+		this->submeshCount = submeshCount;
+		this->submeshes = new Submesh*[submeshCount];
+		for (uint32_t i = 0; i < submeshCount; i++) {
+			// Create submesh object using indices array and index count
+			this->submeshes[i] = new Submesh(indicesList[i], indexCountList[i]);
+			// Delete indices array after copied into submesh buffer
+			delete indicesList[i];
+		}
 	}
 
 	Mesh::~Mesh() {
@@ -20,19 +46,17 @@ namespace core {
 
 	void Mesh::cleanup() {
 		ResourceAllocator::destroyBuffer(vertexBuffer);
-		ResourceAllocator::destroyBuffer(indexBuffer);
-		if (blas.handle != VK_NULL_HANDLE) {
-			ResourceAllocator::destroyBuffer(blas.buffer);
-			EngineContext::getDevice().destroyAccelerationStructureKHR(blas.handle);
-		}
+		for (uint32_t i = 0; i < submeshCount; i++) 
+			delete submeshes[i];
+		delete[] submeshes;
 	}
 
-	void Mesh::createVertexBuffer(Vertex* vertices) {
+	void Mesh::createVertexBuffer(Vertex* vertices, uint32_t vertexCount, Buffer& vertexBuffer) {
 		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertexCount;
 		ResourceAllocator::createAndStageBuffer(bufferSize, vertices, vertexBuffer, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR);
 	}
 
-	void Mesh::createIndexBuffer(uint32_t* indices) {
+	void Mesh::createIndexBuffer(uint32_t* indices, uint32_t indexCount, Buffer& indexBuffer) {
 		VkDeviceSize bufferSize = sizeof(indices[0]) * indexCount;
 		ResourceAllocator::createAndStageBuffer(bufferSize, indices, indexBuffer, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR);
 	}

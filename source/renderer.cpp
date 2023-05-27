@@ -291,19 +291,21 @@ namespace core {
             VkBuffer vertexBuffers[] = {object.mesh->getVertexBuffer().buffer};
             VkDeviceSize offsets[] = {0};
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-            // Bind index buffer
-            vkCmdBindIndexBuffer(commandBuffer, object.mesh->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
 
+            // Upload push constants
             StandardPushConstant constant;
             constant.world = object.transform;
             constant.view = scene.getMainCamera().getViewMatrix();
             constant.proj = scene.getMainCamera().getProjectionMatrix();
-
-            // Upload push constants
             vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
+            
+            for (uint32_t i = 0; i < object.mesh->getSubmeshCount(); i++) {
+                // Bind index buffer
+                vkCmdBindIndexBuffer(commandBuffer, object.mesh->getSubmesh(i).getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
 
-            // Draw
-            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(object.mesh->getIndexCount()), 1, 0, 0, 0);
+                // Draw
+                vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(object.mesh->getSubmesh(i).getIndexCount()), 1, 0, 0, 0);
+            }
         }
 
         // End render pass

@@ -53,7 +53,7 @@ namespace core {
 		TopLevelAccelerationStructure tlas;
 		Buffer objDescBuffer;
 
-		void buildAccelerationStructure(std::vector<Object>& objects, std::unordered_set<Mesh*> meshes);
+		void buildAccelerationStructure(std::vector<Object>& objects, std::unordered_set<Mesh*>& meshes);
 		void createObjectDescriptions(std::vector<Object>& objects);
 
 	};

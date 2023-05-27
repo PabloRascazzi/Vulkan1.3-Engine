@@ -41,27 +41,43 @@ namespace core {
 
 	class Mesh {
 	public:
-		Mesh(float* vertices, uint32_t vertexCount, uint32_t* indices, uint32_t indexCount);
+		class Submesh {
+		public: 
+			Submesh(uint32_t* indices, uint32_t indexCount);
+			~Submesh();
+
+			void cleanup();
+
+			uint32_t getIndexCount() { return indexCount; }
+			Buffer& getIndexBuffer() { return indexBuffer; }
+			BottomLevelAccelerationStructure& getBLAS() { return blas; }
+
+		private:
+			uint32_t indexCount;
+			Buffer indexBuffer;
+			BottomLevelAccelerationStructure blas;
+
+		};
+
+	public:
+		Mesh(float* vertices, uint32_t vertexCount, uint32_t submeshCount, uint32_t** indicesList, uint32_t* indexCountList);
 		~Mesh();
 
 		void cleanup();
 
 		Buffer& getVertexBuffer() { return vertexBuffer; }
-		Buffer& getIndexBuffer() { return indexBuffer; }
 		uint32_t getVertexCount() { return vertexCount; }
-		uint32_t getIndexCount() { return indexCount; }
-		BottomLevelAccelerationStructure& getBLAS() { return blas; }
+		Submesh& getSubmesh(uint32_t index) { return *submeshes[index]; }
+		uint32_t& getSubmeshCount() { return submeshCount; }
 
 	private:
 		uint32_t vertexCount;
-		uint32_t indexCount;
-
 		Buffer vertexBuffer;
-		Buffer indexBuffer;
-		BottomLevelAccelerationStructure blas;
+		uint32_t submeshCount;
+		Submesh** submeshes;
 
-		void createVertexBuffer(Vertex* vertices);
-		void createIndexBuffer(uint32_t* indices);
+		static void createVertexBuffer(Vertex* vertices, uint32_t vertexCount, Buffer& vertexBuffer);
+		static void createIndexBuffer(uint32_t* indices, uint32_t indexCount, Buffer& indexBuffer);
 
 	};
 }

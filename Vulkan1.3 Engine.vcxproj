@@ -180,6 +180,7 @@
     <ClCompile Include="source\pipeline\pipeline.cpp" />
     <ClCompile Include="source\pipeline\raytracing_pipeline.cpp" />
     <ClCompile Include="source\pipeline\standard_pipeline.cpp" />
+    <ClCompile Include="source\file_reader.cpp" />
     <ClCompile Include="source\time.cpp" />
     <ClCompile Include="source\vulkan_extension.cpp" />
     <ClCompile Include="source\window.cpp" />
@@ -189,6 +190,7 @@
     <ClInclude Include="include\debugger.h" />
     <ClInclude Include="include\descriptor_set.h" />
     <ClInclude Include="include\engine_globals.h" />
+    <ClInclude Include="include\file_reader.h" />
     <ClInclude Include="include\pipeline\post_pipeline.h" />
     <ClInclude Include="include\renderer.h" />
     <ClInclude Include="include\resource_allocator.h" />
