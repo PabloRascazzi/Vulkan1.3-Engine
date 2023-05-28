@@ -3,10 +3,6 @@
 
 namespace core {
 
-	VkDeviceAddress BottomLevelAccelerationStructure::getDeviceAddress() {
-		return buffer.getDeviceAddress();
-	}
-
 	Mesh::Submesh::Submesh(uint32_t* indices, uint32_t indexCount) {
 		this->indexCount = indexCount;
 		createIndexBuffer(indices, indexCount, this->indexBuffer);
@@ -18,10 +14,7 @@ namespace core {
 
 	void Mesh::Submesh::cleanup() {
 		ResourceAllocator::destroyBuffer(indexBuffer);
-		if (blas.handle != VK_NULL_HANDLE) {
-			ResourceAllocator::destroyBuffer(blas.buffer);
-			EngineContext::getDevice().destroyAccelerationStructureKHR(blas.handle);
-		}
+		ResourceAllocator::destroyAccelerationStructure(blas);
 	}
 
 	Mesh::Mesh(float* vertices, uint32_t vertexCount, uint32_t submeshCount, uint32_t** indicesList, uint32_t* indexCountList) {

@@ -33,12 +33,6 @@ namespace core {
 		}
 	};
 
-	struct BottomLevelAccelerationStructure {
-		Buffer buffer;
-		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
-		VkDeviceAddress getDeviceAddress();
-	};
-
 	class Mesh {
 	public:
 		class Submesh {
@@ -50,12 +44,12 @@ namespace core {
 
 			uint32_t getIndexCount() { return indexCount; }
 			Buffer& getIndexBuffer() { return indexBuffer; }
-			BottomLevelAccelerationStructure& getBLAS() { return blas; }
+			AccelerationStructure& getBLAS() { return blas; }
 
 		private:
 			uint32_t indexCount;
 			Buffer indexBuffer;
-			BottomLevelAccelerationStructure blas;
+			AccelerationStructure blas;
 
 		};
 

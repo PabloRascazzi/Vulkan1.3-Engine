@@ -22,9 +22,7 @@ namespace core {
 		for (auto& camera : cameras) delete camera;
 		cameras.clear();
 
-		ResourceAllocator::destroyBuffer(tlas.buffer);
-		EngineContext::getDevice().destroyAccelerationStructureKHR(tlas.handle);
-
+		ResourceAllocator::destroyAccelerationStructure(tlas);
 		ResourceAllocator::destroyBuffer(objDescBuffer);
 	}
 
@@ -78,7 +76,7 @@ namespace core {
 	struct BottomLevelAccelerationStructureCreateInfo {
 		VkAccelerationStructureGeometryKHR geometry;
 		VkAccelerationStructureBuildRangeInfoKHR offset;
-		BottomLevelAccelerationStructure* pBLAS;
+		AccelerationStructure* pBLAS;
 	};
 
 	std::vector<BottomLevelAccelerationStructureCreateInfo> fetchAllBottomLevelAccelerationStructureCreateInfo(std::unordered_set<Mesh*>& meshes) {
@@ -183,16 +181,8 @@ namespace core {
 				
 				for (const auto& idx : indices) {
 					// Allocate acceleration structure.
-					ResourceAllocator::createBuffer(buildAS[idx].sizeInfo.accelerationStructureSize, input[idx].pBLAS->buffer, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
-
-					VkAccelerationStructureCreateInfoKHR createInfo{};
-					createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-					createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-					createInfo.size = buildAS[idx].sizeInfo.accelerationStructureSize;
-					createInfo.buffer = input[idx].pBLAS->buffer.buffer;
-
-					VK_CHECK_MSG(vkCreateAccelerationStructureKHR(EngineContext::getDevice(), &createInfo, nullptr, &input[idx].pBLAS->handle), "Failed to create bottom level acceleration structure.");
-
+					ResourceAllocator::createAccelerationStructure(buildAS[idx].sizeInfo.accelerationStructureSize, *input[idx].pBLAS, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
+					
 					buildAS[idx].buildInfo.dstAccelerationStructure = input[idx].pBLAS->handle;
 					buildAS[idx].buildInfo.scratchData.deviceAddress = scratchAddress;
 
@@ -234,7 +224,7 @@ namespace core {
 		return out;
 	}
 
-	void buildTLAS(std::vector<Object>& objects, TopLevelAccelerationStructure& tlas) {
+	void buildTLAS(std::vector<Object>& objects, AccelerationStructure& tlas) {
 		std::vector<VkAccelerationStructureInstanceKHR> instances;
 		instances.reserve(objects.size());
 		uint32_t nextInstanceIndex = 0;
@@ -302,15 +292,7 @@ namespace core {
 		vkGetAccelerationStructureBuildSizesKHR(EngineContext::getDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &instCount, &sizeInfo);
 
 		// Create TLAS buffer.
-		ResourceAllocator::createBuffer(sizeInfo.accelerationStructureSize, tlas.buffer, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
-
-		VkAccelerationStructureCreateInfoKHR createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-		createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-		createInfo.size = sizeInfo.accelerationStructureSize;
-		createInfo.buffer = tlas.buffer.buffer;
-
-		VK_CHECK_MSG(vkCreateAccelerationStructureKHR(EngineContext::getDevice(), &createInfo, nullptr, &tlas.handle), "Failed to create top level acceleration structure.");
+		ResourceAllocator::createAccelerationStructure(sizeInfo.accelerationStructureSize, tlas, VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR);
 
 		// Build TLAS
 		Buffer scratchBuffer;

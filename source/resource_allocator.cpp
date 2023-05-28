@@ -13,7 +13,11 @@ namespace core {
 	VmaAllocator ResourceAllocator::allocator;
 
     VkDeviceAddress Buffer::getDeviceAddress() {
-        return ResourceAllocator::getBufferDeviceAddress(*this);
+        return ResourceAllocator::getBufferDeviceAddress(this->buffer);
+    }
+
+    VkDeviceAddress AccelerationStructure::getDeviceAddress() {
+        return ResourceAllocator::getBufferDeviceAddress(this->buffer);
     }
 
     void ResourceAllocator::setup(const VkInstance& instance, const VkPhysicalDevice& physicalDevice, const VkDevice& device, const uint32_t familyQueueIndex) {
@@ -57,7 +61,7 @@ namespace core {
     //                                   Buffer Allocation                                   //
     //***************************************************************************************//
 
-    void ResourceAllocator::createBuffer(const VkDeviceSize& size, Buffer& buffer, VkBufferUsageFlags usage) {
+    void ResourceAllocator::createBuffer(const VkDeviceSize& size, VkBuffer& buffer, VmaAllocation& allocation, VkBufferUsageFlags usage) {
         VkBufferCreateInfo bufferCreateInfo{};
 		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		bufferCreateInfo.size = size;
@@ -69,7 +73,11 @@ namespace core {
         allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 
         VmaAllocationInfo allocInfo;
-        VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer.buffer, &buffer.allocation, &allocInfo));
+        VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, &allocInfo));
+    }
+
+    void ResourceAllocator::createBuffer(const VkDeviceSize& size, Buffer& buffer, VkBufferUsageFlags usage) {
+        createBuffer(size, buffer.buffer, buffer.allocation, usage);
     }
 
     void ResourceAllocator::mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const uint32_t& offset) {
@@ -163,16 +171,24 @@ namespace core {
         vkDestroySemaphore(device, memoryTransferComplete, nullptr);
     }
 
-    VkDeviceAddress ResourceAllocator::getBufferDeviceAddress(const Buffer& buffer) {
+    VkDeviceAddress ResourceAllocator::getBufferDeviceAddress(const VkBuffer& buffer) {
         VkBufferDeviceAddressInfo addressInfo{};
         addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-        addressInfo.buffer = buffer.buffer;
+        addressInfo.buffer = buffer;
 
         return vkGetBufferDeviceAddress(device, &addressInfo);
     }
 
-	void ResourceAllocator::destroyBuffer(Buffer& buffer) {
-        vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
+    VkDeviceAddress ResourceAllocator::getBufferDeviceAddress(const Buffer& buffer) {
+        return getBufferDeviceAddress(buffer.buffer);
+    }
+
+    void ResourceAllocator::destroyBuffer(const VkBuffer& buffer, const VmaAllocation& allocation) {
+        vmaDestroyBuffer(allocator, buffer, allocation);
+    }
+
+	void ResourceAllocator::destroyBuffer(const Buffer& buffer) {
+        destroyBuffer(buffer.buffer, buffer.allocation);
     }
 
     //***************************************************************************************//
@@ -244,6 +260,29 @@ namespace core {
         }
         if (image.sampler != VK_NULL_HANDLE) {
             vkDestroySampler(device, image.sampler, nullptr);
+        }
+    }
+
+    //***************************************************************************************//
+    //                          Acceleration Structure Allocation                            //
+    //***************************************************************************************//
+
+    void ResourceAllocator::createAccelerationStructure(const VkDeviceSize& size, AccelerationStructure& accelStruct, const VkAccelerationStructureTypeKHR& type) {
+        createBuffer(size, accelStruct.buffer, accelStruct.allocation, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+		
+        VkAccelerationStructureCreateInfoKHR createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+        createInfo.type = type;
+		createInfo.size = size;
+        createInfo.buffer = accelStruct.buffer;
+
+		VK_CHECK(vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &accelStruct.handle));
+    }
+
+	void ResourceAllocator::destroyAccelerationStructure(const AccelerationStructure& accelStruct) {
+        if (accelStruct.handle != VK_NULL_HANDLE) {
+            destroyBuffer(accelStruct.buffer, accelStruct.allocation);
+            vkDestroyAccelerationStructureKHR(device, accelStruct.handle, nullptr);
         }
     }
 }

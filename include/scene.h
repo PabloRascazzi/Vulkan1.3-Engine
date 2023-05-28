@@ -20,11 +20,6 @@ namespace core {
 		uint64_t indexAddress;     // Address of the index buffer
 	};
 
-	struct TopLevelAccelerationStructure {
-		Buffer buffer;
-		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
-	};
-
 	class Scene {
 	public:
 		Scene();
@@ -40,7 +35,7 @@ namespace core {
 		void setMainCamera(Camera* camera);
 
 		std::vector<Object>& getObjects() { return objects; }
-		TopLevelAccelerationStructure& getTLAS() { return tlas; }
+		AccelerationStructure& getTLAS() { return tlas; }
 		Buffer& getObjDescriptions() { return objDescBuffer; }
 
 	private:
@@ -50,7 +45,7 @@ namespace core {
 		std::unordered_set<Mesh*> meshes;
 		std::vector<ObjDesc> objDescriptions;
 
-		TopLevelAccelerationStructure tlas;
+		AccelerationStructure tlas;
 		Buffer objDescBuffer;
 
 		void buildAccelerationStructure(std::vector<Object>& objects, std::unordered_set<Mesh*>& meshes);
