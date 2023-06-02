@@ -10,6 +10,7 @@
 #include <pipeline/raytracing_pipeline.h>
 #include <pipeline/post_pipeline.h>
 #include <resource_primitives.h>
+#include <file_reader.h>
 
 #include <iostream>
 #include <Vulkan/vulkan.h>
@@ -45,6 +46,7 @@ int main() {
     std::cout << "Max Instance Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxInstanceCount << std::endl;
 
     // Create Mesh.
+    Mesh* anvil = FileReader::readMeshFile("anvil");
     Mesh* quad = ResourcePrimitives::createQuad(2.0f);
     Mesh* plane = ResourcePrimitives::createPlane(6, 2.0f);
     Mesh* cube = ResourcePrimitives::createCube(1.0f);
@@ -56,6 +58,7 @@ int main() {
     Object* mirror2  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f,  0.0f, -2.5f)) * (glm::rotate(glm::mat4(1.0f), glm::radians(135.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
     Object* demoCube = scene->addObject(cube, glm::translate(glm::mat4(1.0f), glm::vec3( 0.0f, -0.5f, -5.0f)), 0);
     Object* floor    = scene->addObject(plane, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
+    Object* anvilObj = scene->addObject(anvil, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f,  -2.0f)), 0);
     Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow().getAspectRatio());
     scene->setup();
 
@@ -186,6 +189,7 @@ int main() {
     EngineContext::getDevice().waitIdle();
 
     // Clean up objects.
+    delete anvil;
     delete quad;
     delete plane;
     delete cube;

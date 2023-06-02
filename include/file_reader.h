@@ -8,7 +8,7 @@ namespace core {
 
 	class FileReader {
 	public:
-		Mesh* readMeshFile(std::string filename);
+		static Mesh* readMeshFile(std::string filename);
 
 	private:
 
