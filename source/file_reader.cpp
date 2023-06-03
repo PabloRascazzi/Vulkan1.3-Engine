@@ -22,6 +22,12 @@ namespace core {
 		VERTEX_BUFFER_FORMAT_SEPARATED = 1,
 	} VertexBufferFormat;
 
+	typedef enum PrimitiveTopology { 
+		PRIMITIVE_TOPOLOGY_TRIANGLE_LIST = 0, 
+		PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP = 1,
+		PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_PRIMITIVE_RESTART = 2,
+	} PrimitiveTopology;
+
 	struct FileHeader {
 		int32_t identifier; // Used to determine byte order
 		int32_t version[2]; // Major and minor version number
@@ -30,6 +36,7 @@ namespace core {
 	struct MeshHeader {
 		VertexFlag vertexFlags;
 		VertexBufferFormat vertexBufferFormat;
+		PrimitiveTopology primitiveTopology;
 		uint32_t vertexStride;
 		uint32_t vertexCount;
 		uint32_t submeshCount;
@@ -62,6 +69,7 @@ namespace core {
 		if (logReader) {
 			std::cout << "Vertex Flags: " << meshHeader.vertexFlags << std::endl;
 			std::cout << "Vertex Buffer Format: " << meshHeader.vertexBufferFormat << std::endl;
+			std::cout << "Primitive Topology: " << meshHeader.primitiveTopology << std::endl;
 			std::cout << "Vertex Stride: " << meshHeader.vertexStride << std::endl;
 			std::cout << "Vertex Count: " << meshHeader.vertexCount << std::endl;
 			std::cout << "Submesh Count: " << meshHeader.submeshCount << std::endl;
@@ -72,6 +80,10 @@ namespace core {
 		}
 		if (meshHeader.vertexBufferFormat != VERTEX_BUFFER_FORMAT_INTERLEAVED) {
 			std::cerr << "Error: Mesh file's vertex buffer format is invalid." << std::endl;
+			return nullptr;
+		}
+		if (meshHeader.primitiveTopology != PRIMITIVE_TOPOLOGY_TRIANGLE_LIST) {
+			std::cerr << "Error: Mesh file's primitive topology is invalid." << std::endl;
 			return nullptr;
 		}
 
