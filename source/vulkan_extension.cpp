@@ -47,6 +47,11 @@ static PFN_vkCreateDebugUtilsMessengerEXT pfn_vkCreateDebugUtilsMessengerEXT = 0
 static PFN_vkDestroyDebugUtilsMessengerEXT pfn_vkDestroyDebugUtilsMessengerEXT = 0;
 static PFN_vkSubmitDebugUtilsMessageEXT pfn_vkSubmitDebugUtilsMessageEXT = 0;
 #endif /* VK_EXT_debug_utils */
+#ifdef VK_EXT_debug_report
+static PFN_vkCreateDebugReportCallbackEXT pfn_vkCreateDebugReportCallbackEXT = 0;
+static PFN_vkDebugReportMessageEXT pfn_vkDebugReportMessageEXT = 0;
+static PFN_vkDestroyDebugReportCallbackEXT pfn_vkDestroyDebugReportCallbackEXT = 0;
+#endif /* VK_EXT_debug_report */
 
 
 #ifdef VK_KHR_acceleration_structure
@@ -350,7 +355,35 @@ VKAPI_ATTR void VKAPI_CALL vkSubmitDebugUtilsMessageEXT(
     return pfn_vkSubmitDebugUtilsMessageEXT(instance, messageSeverity, messageTypes, pCallbackData);
 }
 #endif /* VK_EXT_debug_utils */
-
+#ifdef VK_EXT_debug_report
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugReportCallbackEXT(
+    VkInstance                                  instance,
+    const VkDebugReportCallbackCreateInfoEXT*   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDebugReportCallbackEXT*                   pCallback) 
+{
+    return pfn_vkCreateDebugReportCallbackEXT(instance, pCreateInfo, pAllocator, pCallback);
+}
+VKAPI_ATTR void VKAPI_CALL vkDebugReportMessageEXT(
+    VkInstance                                  instance,
+    VkDebugReportFlagsEXT                       flags,
+    VkDebugReportObjectTypeEXT                  objectType,
+    uint64_t                                    object,
+    size_t                                      location,
+    int32_t                                     messageCode,
+    const char*                                 pLayerPrefix,
+    const char*                                 pMessage) 
+{
+    return pfn_vkDebugReportMessageEXT(instance, flags, objectType, object, location, messageCode, pLayerPrefix, pMessage);
+}
+VKAPI_ATTR void VKAPI_CALL vkDestroyDebugReportCallbackEXT(
+    VkInstance                                  instance,
+    VkDebugReportCallbackEXT                    callback,
+    const VkAllocationCallbacks*                pAllocator) 
+{
+    return pfn_vkDestroyDebugReportCallbackEXT(instance, callback, pAllocator);
+}
+#endif /* VK_EXT_debug_report */
 
 #ifdef VK_KHR_acceleration_structure
 void load_extension_VK_KHR_acceleration_structure(VkDevice device) {
@@ -408,3 +441,10 @@ void load_extension_VK_EXT_debug_utils(VkInstance instance) {
     pfn_vkSubmitDebugUtilsMessageEXT = (PFN_vkSubmitDebugUtilsMessageEXT)vkGetInstanceProcAddr(instance, "vkSubmitDebugUtilsMessageEXT");
 }
 #endif /* VK_EXT_debug_utils */
+#ifdef VK_EXT_debug_report
+void load_extension_VK_EXT_debug_report(VkInstance instance) {
+    pfn_vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
+    pfn_vkDebugReportMessageEXT = (PFN_vkDebugReportMessageEXT)vkGetInstanceProcAddr(instance, "vkDebugReportMessageEXT");
+    pfn_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
+}
+#endif /* VK_EXT_debug_report */

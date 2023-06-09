@@ -7,7 +7,11 @@ namespace core {
 
 	class Debugger {
 	public:
-		static void setup(VkDevice device);
+		static const bool debugReportEnabled = false; // Boolean for if debug report is enabled.
+
+		// Must be called once after the instance and the device are created.
+		static void setup(VkInstance instance, VkDevice device);
+		static void cleanup();
 
 		// Sets object name for debugging.
 		static void setObjectName(const uint64_t handle, const std::string& name, VkObjectType type);
@@ -62,7 +66,12 @@ namespace core {
 		static void setObjectName(const VkOpticalFlowSessionNV &object, const std::string& name)          { setObjectName((uint64_t)object, name, VK_OBJECT_TYPE_OPTICAL_FLOW_SESSION_NV); }
 
 	private:
+		static VkInstance instance;
 		static VkDevice device;
+		static VkDebugReportCallbackEXT debugReportCallback;
+
+		static void createDebugReportCallback(VkInstance instance);
+		static VkBool32 Debugger::debugReportCallbackHandler(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData);
 
 	};
 }

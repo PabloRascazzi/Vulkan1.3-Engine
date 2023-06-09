@@ -83,7 +83,7 @@ namespace core {
 
 	private:
 		static Window window;
-		static vk::Instance instance;
+		static VkInstance instance;
 		static vk::SurfaceKHR surface;
 		static std::vector<const char*> instanceExtensions;
 		static std::vector<const char*> deviceExtensions;

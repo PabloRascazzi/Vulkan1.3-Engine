@@ -29,11 +29,12 @@ void load_extension_VK_KHR_acceleration_structure(VkDevice);
 void load_extension_VK_KHR_deferred_host_operations(VkDevice);
 void load_extension_VK_KHR_ray_tracing_pipeline(VkDevice);
 void load_extension_VK_EXT_debug_utils(VkInstance);
+void load_extension_VK_EXT_debug_report(VkInstance);
 
 namespace core {
 
     Window EngineContext::window;
-    vk::Instance EngineContext::instance;
+    VkInstance EngineContext::instance;
     vk::SurfaceKHR EngineContext::surface;
     std::vector<const char*> EngineContext::instanceExtensions;
     std::vector<const char*> EngineContext::deviceExtensions;
@@ -58,7 +59,7 @@ namespace core {
             selectPhysicalDevice();
             createLogicalDevice();
             ResourceAllocator::setup(instance, physicalDevice, device, queryQueueFamilies(physicalDevice).graphicsFamily.value());
-            Debugger::setup(device);
+            Debugger::setup(instance, device);
             createCommandPool();
             Renderer::setup(device, graphicsQueue, presentQueue);
         }
@@ -82,11 +83,12 @@ namespace core {
         // Destroy all vulkan objects
         Renderer::cleanup();
         device.destroyCommandPool(commandPool);
+        Debugger::cleanup();
         ResourceAllocator::cleanup();
         device.destroy();
-        instance.destroySurfaceKHR(surface);
+        vkDestroySurfaceKHR(instance, surface, nullptr);
         window.cleanup();
-        instance.destroy();
+        vkDestroyInstance(instance, nullptr);
     }
 
     void EngineContext::setupInstanceExtensions() {
@@ -101,6 +103,9 @@ namespace core {
             throw std::runtime_error("Could not get the names of required instance extensions from SDL.");
         }
         instanceExtensions.push_back("VK_EXT_debug_utils");
+        if (Debugger::debugReportEnabled) {
+            instanceExtensions.push_back("VK_EXT_debug_report");
+        }
     }
 
     void EngineContext::setupValidationLayers() {
@@ -111,35 +116,50 @@ namespace core {
     }
 
     void EngineContext::createInstance() {
-        // vk::ApplicationInfo allows the programmer to specifiy some basic information about the
-        // program, which can be useful for layers and tools to provide more debug information.
-        vk::ApplicationInfo appInfo = vk::ApplicationInfo()
-            .setPApplicationName("Vulkan C++ Windowed Program")
-            .setApplicationVersion(1)
-            .setPEngineName("LunarG SDK")
-            .setEngineVersion(1)
-            .setApiVersion(ENGINE_GRAPHICS_API_VERSION);
+        // Application information.
+        VkApplicationInfo appInfo{};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = "Vulkan C++ Windowed Program";
+        appInfo.applicationVersion = 1;
+        appInfo.pEngineName = "LunarG SDK";
+        appInfo.engineVersion = 1;
+        appInfo.apiVersion = ENGINE_GRAPHICS_API_VERSION;
+        
+        void* pValidationFeatures = nullptr;
+        if (Debugger::debugReportEnabled) {
+            // List of all knronos validation layer features to enable.
+            VkValidationFeatureEnableEXT enabledValidationFeatures[1] = { VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
+            // Validation features.
+            VkValidationFeaturesEXT validationFeatures{};
+            validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+            validationFeatures.enabledValidationFeatureCount = 1;
+            validationFeatures.pEnabledValidationFeatures = enabledValidationFeatures;
+            // Set pValidationFeatures.
+            pValidationFeatures = &validationFeatures;
+        }
 
-        // vk::InstanceCreateInfo is where the programmer specifies the layers and/or extensions that
-        // are needed.
-        vk::InstanceCreateInfo instInfo = vk::InstanceCreateInfo()
-            .setFlags(vk::InstanceCreateFlags())
-            .setPApplicationInfo(&appInfo)
-            .setEnabledExtensionCount(static_cast<uint32_t>(instanceExtensions.size()))
-            .setPpEnabledExtensionNames(instanceExtensions.data())
-            .setEnabledLayerCount(static_cast<uint32_t>(layers.size()))
-            .setPpEnabledLayerNames(layers.data());
+        // Instance create info.
+        VkInstanceCreateInfo instInfo{};
+        instInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        instInfo.pApplicationInfo = &appInfo;
+        instInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
+        instInfo.ppEnabledExtensionNames = instanceExtensions.data();
+        instInfo.enabledLayerCount = static_cast<uint32_t>(layers.size());
+        instInfo.ppEnabledLayerNames = layers.data();
+        instInfo.pNext = pValidationFeatures;
 
         // Create the Vulkan instance.
         try {
-            instance = vk::createInstance(instInfo);
-        }
-        catch (const std::exception& e) {
+            vkCreateInstance(&instInfo, nullptr, &instance);
+        } catch (const std::exception& e) {
             throw std::runtime_error("Could not create a Vulkan instance: " + *e.what());
         }
 
         // load VK instance extensions.
         load_extension_VK_EXT_debug_utils(instance);
+        if (Debugger::debugReportEnabled) {
+            load_extension_VK_EXT_debug_report(instance);
+        }
     }
 
     void EngineContext::createSurface() {
@@ -156,6 +176,9 @@ namespace core {
         deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME); // Required to build acceleration structures.
         deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME); // Required for ray tracing pipeline.
         deviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME); // Required to build and use ray tracing pipeline.
+        if (Debugger::debugReportEnabled) {
+            deviceExtensions.push_back(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME); // Required for the "GLSL_EXT_debug_printf" shader extension.
+        }
     }
 
     void EngineContext::selectPhysicalDevice() {
