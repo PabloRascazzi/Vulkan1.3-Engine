@@ -5,22 +5,22 @@
 namespace core {
 
 	struct Buffer {
-		VkBuffer buffer;
-		VmaAllocation allocation;
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VmaAllocation allocation = VK_NULL_HANDLE;
 		VkDeviceAddress getDeviceAddress();
 	};
 
 	struct Image {
-		VkImage image;
-		VkImageView view;
-		VkSampler sampler;
-		VmaAllocation allocation;
+		VkImage image = VK_NULL_HANDLE;
+		VkImageView view = VK_NULL_HANDLE;
+		VkSampler sampler = VK_NULL_HANDLE;
+		VmaAllocation allocation = VK_NULL_HANDLE;
 	};
 
 	struct AccelerationStructure {
-		VkBuffer buffer;
-		VmaAllocation allocation;
-		VkAccelerationStructureKHR handle;
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VmaAllocation allocation = VK_NULL_HANDLE;
+		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
 		VkDeviceAddress getDeviceAddress();
 	};
 

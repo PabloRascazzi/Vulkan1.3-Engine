@@ -45,20 +45,26 @@ int main() {
     std::cout << "Max Geometry Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxGeometryCount << std::endl;
     std::cout << "Max Instance Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxInstanceCount << std::endl;
 
-    // Create Mesh.
+    // Create Meshes.
     Mesh* anvil = FileReader::readMeshFile("anvil");
     Mesh* quad = ResourcePrimitives::createQuad(2.0f);
     Mesh* plane = ResourcePrimitives::createPlane(6, 2.0f);
     Mesh* cube = ResourcePrimitives::createCube(1.0f);
 
+    // Create Materials.
+    Material* cubeMat =   new Material(nullptr, glm::vec3(1.0f, 0.0f, 0.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+    Material* mirrorMat = new Material(nullptr, glm::vec3(0.0f, 1.0f, 0.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+    Material* floorMat =  new Material(nullptr, glm::vec3(0.0f, 0.0f, 1.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+    Material* anvilMat =   new Material(nullptr, glm::vec3(1.0f, 0.0f, 1.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+
     // Create Scene.
     Scene* scene = new Scene();
     glm::mat4 mirrorRotation = glm::rotate(glm::mat4(1.0f), glm::radians(5.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    Object* mirror1  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3( 3.0f,  0.0f, -7.5f)) * (glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
-    Object* mirror2  = scene->addObject(quad, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f,  0.0f, -2.5f)) * (glm::rotate(glm::mat4(1.0f), glm::radians(135.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
-    Object* demoCube = scene->addObject(cube, glm::translate(glm::mat4(1.0f), glm::vec3( 0.0f, -0.5f, -5.0f)), 0);
-    Object* floor    = scene->addObject(plane, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
-    Object* anvilObj = scene->addObject(anvil, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f,  -2.0f)), 0);
+    Object* mirror1  = scene->addObject(quad, std::vector{mirrorMat}, glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, -7.5f))* (glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
+    Object* mirror2  = scene->addObject(quad, std::vector{mirrorMat}, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f,  0.0f, -2.5f)) * (glm::rotate(glm::mat4(1.0f), glm::radians(135.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
+    Object* demoCube = scene->addObject(cube, std::vector{cubeMat}, glm::translate(glm::mat4(1.0f), glm::vec3( 0.0f, -0.5f, -5.0f)), 0);
+    Object* floor    = scene->addObject(plane, std::vector{floorMat}, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
+    Object* anvilObj = scene->addObject(anvil, std::vector{anvilMat}, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f,  -2.0f)), 0);
     Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow().getAspectRatio());
     scene->setup();
 
@@ -66,6 +72,7 @@ int main() {
     DescriptorSet* rtDescSet = new DescriptorSet();
     rtDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
     rtDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+    rtDescSet->addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
     rtDescSet->create(EngineContext::getDevice());
 
     DescriptorSet* postDescSet = new DescriptorSet();
@@ -136,6 +143,13 @@ int main() {
         camDescInfo.offset = 0;
         camDescInfo.range = sizeof(CameraUniformBufferObject);
         globalDescSet->writeBuffer(0, camDescInfo);
+
+        // Upload objects description buffer.
+        VkDescriptorBufferInfo objDescInfo{};
+        objDescInfo.buffer = scene->getObjDescriptions().buffer;
+        objDescInfo.offset = 0;
+        objDescInfo.range = VK_WHOLE_SIZE;
+        rtDescSet->writeBuffer(2, objDescInfo);
     }
     DescriptorSet::setCurrentFrame(0);
     globalDescSet->update();
@@ -189,6 +203,10 @@ int main() {
     EngineContext::getDevice().waitIdle();
 
     // Clean up objects.
+    delete cubeMat;
+    delete mirrorMat;
+    delete floorMat;
+    delete anvilMat;
     delete anvil;
     delete quad;
     delete plane;

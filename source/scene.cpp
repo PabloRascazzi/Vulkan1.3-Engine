@@ -40,10 +40,11 @@ namespace core {
 		return cameras[cameras.size()-1];
 	}
 
-	Object* Scene::addObject(Mesh* mesh, glm::mat4 transform, uint32_t shader) {
-		Object obj = {mesh, transform, shader};
+	Object* Scene::addObject(Mesh* mesh, std::vector<Material*> mats, glm::mat4 transform, uint32_t shader) {
+		Object obj = {mesh, mats, transform, shader};
 		objects.push_back(obj);
 		meshes.insert(mesh);
+		for (auto material : mats) materials.insert(material);
 		return &objects[objects.size()-1];
 	}
 
@@ -56,11 +57,11 @@ namespace core {
 
 	void Scene::createObjectDescriptions(std::vector<Object>& objects) {
 		for (auto obj : objects) {
-			for (uint32_t k = 0; k < obj.mesh->getSubmeshCount(); k++) {
+			for (uint32_t k = 0; k < obj.mesh->getSubmeshCount() && k < obj.materials.size(); k++) {
 				VkDeviceAddress vertexAddress = obj.mesh->getVertexBuffer().getDeviceAddress();
 				VkDeviceAddress indexAddress = obj.mesh->getSubmesh(k).getIndexBuffer().getDeviceAddress();
-				// TODO - VkDeviceAddress materialAddress = ...
-				ObjDesc desc = {vertexAddress, indexAddress};
+				VkDeviceAddress materialAddress = obj.materials.at(k)->getBuffer().getDeviceAddress();
+				ObjDesc desc = {vertexAddress, indexAddress, materialAddress};
 				objDescriptions.push_back(desc);
 			}
 		}
@@ -229,15 +230,15 @@ namespace core {
 		instances.reserve(objects.size());
 		uint32_t nextInstanceIndex = 0;
 
-		for (uint32_t i = 0; i < objects.size(); i++) {
-			for (uint32_t k = 0; k < objects[k].mesh->getSubmeshCount(); k++) {
+		for (auto obj : objects) {
+			for (uint32_t k = 0; k < obj.mesh->getSubmeshCount() && k < obj.materials.size(); k++) {
 				VkAccelerationStructureInstanceKHR inst{};
-				inst.transform = toTransformMatrixKHR(objects[i].transform);
+				inst.transform = toTransformMatrixKHR(obj.transform);
 				inst.instanceCustomIndex = nextInstanceIndex++;
-				inst.accelerationStructureReference = objects[i].mesh->getSubmesh(k).getBLAS().getDeviceAddress();
+				inst.accelerationStructureReference = obj.mesh->getSubmesh(k).getBLAS().getDeviceAddress();
 				inst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 				inst.mask = 0xFF;
-				inst.instanceShaderBindingTableRecordOffset = objects[i].shaderHitGroupOffset;
+				inst.instanceShaderBindingTableRecordOffset = obj.shaderHitGroupOffset;
 				instances.emplace_back(inst);
 			}
 		}

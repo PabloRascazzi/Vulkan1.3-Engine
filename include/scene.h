@@ -1,5 +1,6 @@
 #pragma once
 #include <mesh.h>
+#include <material.h>
 #include <glm/matrix.hpp>
 #include <camera.h>
 
@@ -11,6 +12,7 @@ namespace core {
 
 	struct Object {
 		Mesh* mesh;
+		std::vector<Material*> materials;
 		glm::mat4 transform;
 		uint32_t shaderHitGroupOffset;
 	};
@@ -18,6 +20,7 @@ namespace core {
 	struct ObjDesc {
 		uint64_t vertexAddress;    // Address of the Vertex buffer
 		uint64_t indexAddress;     // Address of the index buffer
+		uint64_t materialAddress;  // Address of the material buffer
 	};
 
 	class Scene {
@@ -29,7 +32,7 @@ namespace core {
 		void update();
 
 		Camera* addCamera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n = 0.01f, const float& f = 1000.f);
-		Object* addObject(Mesh* mesh, glm::mat4 transform, uint32_t shader);
+		Object* addObject(Mesh* mesh, std::vector<Material*> materials, glm::mat4 transform, uint32_t shader);
 
 		Camera& getMainCamera() { return *mainCamera; }
 		void setMainCamera(Camera* camera);
@@ -43,6 +46,7 @@ namespace core {
 		std::vector<Camera*> cameras;
 		std::vector<Object> objects;
 		std::unordered_set<Mesh*> meshes;
+		std::unordered_set<Material*> materials;
 		std::vector<ObjDesc> objDescriptions;
 
 		AccelerationStructure tlas;

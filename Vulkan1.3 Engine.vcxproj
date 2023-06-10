@@ -168,6 +168,7 @@
     <ClCompile Include="source\camera.cpp" />
     <ClCompile Include="source\debugger.cpp" />
     <ClCompile Include="source\descriptor_set.cpp" />
+    <ClCompile Include="source\material.cpp" />
     <ClCompile Include="source\pipeline\post_pipeline.cpp" />
     <ClCompile Include="source\renderer.cpp" />
     <ClCompile Include="source\resource_allocator.cpp" />
@@ -191,6 +192,7 @@
     <ClInclude Include="include\descriptor_set.h" />
     <ClInclude Include="include\engine_globals.h" />
     <ClInclude Include="include\file_reader.h" />
+    <ClInclude Include="include\material.h" />
     <ClInclude Include="include\pipeline\post_pipeline.h" />
     <ClInclude Include="include\renderer.h" />
     <ClInclude Include="include\resource_allocator.h" />
