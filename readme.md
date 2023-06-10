@@ -1,5 +1,5 @@
-## Honour Project - Winter 2023
-Title: Real-Time GPU-Accelerated Ray-Tracing of Mirrors using Vulkan API  
+## Vulkan Engine Project
+Description: This project is a continuation of my university Honour's Project as a way to continue learning about the Vulkan API.<br>
 Author: Pablo Rascazzi
 
 ### Instructions
@@ -11,7 +11,7 @@ Author: Pablo Rascazzi
 * **Run** solution
 
 ### Important Information
-* The project is tested on an **NVIDIA GeForce RTX 2080ti** on driver version **528.49**. 
+* The project is tested on an **NVIDIA GeForce RTX 2080ti** on driver version **528.49** and **531.79**. 
 * The application will crash with driver version **531.18** and **531.29**.
 
 ### Input Controls
