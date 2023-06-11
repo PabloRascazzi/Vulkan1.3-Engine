@@ -292,14 +292,15 @@ namespace core {
             VkDeviceSize offsets[] = {0};
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-            // Upload push constants
-            StandardPushConstant constant;
-            constant.world = object.transform;
-            constant.view = scene.getMainCamera().getViewMatrix();
-            constant.proj = scene.getMainCamera().getProjectionMatrix();
-            vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
+            for (uint32_t i = 0; i < object.mesh->getSubmeshCount() && i < object.materials.size(); i++) {
+                // Upload push constants
+                StandardPushConstant constant;
+                constant.world = object.transform;
+                constant.view = scene.getMainCamera().getViewMatrix();
+                constant.proj = scene.getMainCamera().getProjectionMatrix();
+                constant.materialAddress = object.materials.at(i)->getBuffer().getDeviceAddress();
+                vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
             
-            for (uint32_t i = 0; i < object.mesh->getSubmeshCount(); i++) {
                 // Bind index buffer
                 vkCmdBindIndexBuffer(commandBuffer, object.mesh->getSubmesh(i).getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
 

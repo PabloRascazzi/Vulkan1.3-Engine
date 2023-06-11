@@ -36,7 +36,7 @@ layout(location = 0) rayPayloadInEXT HitPayload prd;
 
 layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; }; // Reference to the array of vertices.
 layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Reference to the array of triangle indices.
-layout(buffer_reference, scalar) buffer Materials { Material m[]; };
+layout(buffer_reference, scalar) buffer Materials { Material m; };
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 2, set = 0, scalar) buffer ObjDesc_ { ObjDesc i[]; } objDesc; 
 
@@ -70,5 +70,5 @@ void main() {
     const vec3 color = v0.color * barycentrics.x + v1.color * barycentrics.y + v2.color * barycentrics.z;
 
     prd.hitValue = color;
-    //prd.hitValue = material.m[0].albedo;
+    //prd.hitValue = material.m.albedo;
 }

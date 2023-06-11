@@ -13,6 +13,7 @@ namespace core {
 		glm::mat4 proj;
 		glm::mat4 world;
 		glm::mat4 view;
+		VkDeviceAddress materialAddress;
 
 		static uint32_t getSize() {
 			return sizeof(StandardPushConstant);
