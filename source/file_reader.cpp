@@ -1,5 +1,9 @@
 #include <file_reader.h>
+#include <debugger.h>
 #include <iostream>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
 
 #define RASC_HEADER (('C'<<24)+('S'<<16)+('A'<<8)+'R')
 
@@ -125,5 +129,30 @@ namespace core {
 
 		// Return mesh
 		return mesh;
+	}
+
+	Texture* FileReader::readImageFile(std::string filename, const ColorSpace& colorSpace) {
+		// Read image file
+		std::string fullpathname = (IMAGE_FOLDER_PATH + filename);
+		int width, height, colorChannels;
+		unsigned char* data = stbi_load(fullpathname.c_str(), &width, &height, &colorChannels, 0);
+
+		// Package data into Texture
+		VkExtent2D extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+		VkFormat format;
+		switch (colorChannels) {
+			case 1: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8_UINT : VK_FORMAT_R8_SRGB); break;
+			case 2: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8_UINT : VK_FORMAT_R8G8_SRGB); break;
+			case 3: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8B8_UINT : VK_FORMAT_R8G8B8_SRGB); break;
+			case 4: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8B8A8_UINT : VK_FORMAT_R8G8B8A8_SRGB); break;
+			default: std::cerr << "Error: Image file's color channels count is invalid." << std::endl; return nullptr;
+		}
+		Texture* texture = new Texture(extent, data, format, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_TRUE, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		Debugger::setObjectName(texture->getImage().image, "Texture: " + filename);
+
+		// Free stbi memory
+		stbi_image_free(data);
+
+		return texture;
 	}
 }

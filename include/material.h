@@ -1,9 +1,9 @@
 #pragma once
 #include <resource_allocator.h>
+#include <texture.h>
 #include <glm/glm.hpp>
 
 namespace core {
-	typedef void Texture; // TODO - create texture class.
 
 	class Material {
 	public:

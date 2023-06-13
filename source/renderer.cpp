@@ -367,7 +367,7 @@ namespace core {
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
-    void Renderer::recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, std::vector<Image>& outImages, uint32_t imageIndex) {
+    void Renderer::recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         
@@ -436,7 +436,7 @@ namespace core {
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
     }
 
-    void Renderer::raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene, std::vector<Image>& outImages) {
+    void Renderer::raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene) {
         // Wait until previous frame has finished.
         VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
         VK_CHECK(vkResetFences(device, 1, (VkFence*)&inFlightFences[currentFrame]));
@@ -452,7 +452,7 @@ namespace core {
         VK_CHECK(vkResetCommandBuffer(commandBuffers[currentFrame], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
 
         // Record command buffer.
-        recordRaytraceCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], rtPipeline, postPipeline, outImages, imageIndex);
+        recordRaytraceCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], rtPipeline, postPipeline, imageIndex);
 
         // Submit command buffer.
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };

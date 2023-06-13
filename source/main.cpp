@@ -3,6 +3,7 @@
 #include <renderer.h>
 #include <input.h>
 #include <mesh.h>
+#include <texture.h>
 #include <camera.h>
 #include <scene.h>
 #include <descriptor_set.h>
@@ -50,6 +51,10 @@ int main() {
     Mesh* quad = ResourcePrimitives::createQuad(2.0f);
     Mesh* plane = ResourcePrimitives::createPlane(6, 2.0f);
     Mesh* cube = ResourcePrimitives::createCube(1.0f);
+
+    // Create Textures.
+    Texture* testTex1 = FileReader::readImageFile("RiverDirt_Diffuse_512.png", COLOR_SPACE_SRGB);
+    Texture* testTex2 = FileReader::readImageFile("RiverDirt_Normals_512.png", COLOR_SPACE_LINEAR);
 
     // Create Materials.
     Material* cubeMat =   new Material(nullptr, glm::vec3(1.0f, 0.0f, 0.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
@@ -101,7 +106,7 @@ int main() {
     PostPipeline* postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{postDescSet}, Renderer::getRenderPass(), Renderer::getSwapChainExtent());
 
     // Fill DescriptorSets and create out images for ray-tracing render pass.
-    std::vector<Image> outImages;
+    std::vector<Texture*> outTextures;
     std::vector<Buffer> cameraBuffers;
     cameraBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -115,22 +120,20 @@ int main() {
         rtDescSet->writeAccelerationStructureKHR(0, tlasDescInfo);
 
         // Upload ray-tracing render pass output image uniform.
-        Image outImage;
-        ResourceAllocator::createImage2D(Renderer::getSwapChainExtent(), VK_FORMAT_R32G32B32A32_SFLOAT, outImage, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
-        ResourceAllocator::createImageView2D(VK_FORMAT_R32G32B32A32_SFLOAT, outImage);
-        ResourceAllocator::createSampler2D(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, outImage);
-        EngineContext::transitionImageLayout(outImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-        outImages.push_back(outImage);
+        VkExtent2D outExtent = VkExtent2D{Renderer::getSwapChainExtent()};
+        Texture* outTexture = new Texture(outExtent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        EngineContext::transitionImageLayout(outTexture->getImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        outTextures.push_back(outTexture);
 
         VkDescriptorImageInfo rtImageDescInfo{};
         rtImageDescInfo.sampler = {};
-        rtImageDescInfo.imageView = outImages[i].view;
+        rtImageDescInfo.imageView = outTextures[i]->getImageView();
         rtImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         rtDescSet->writeImage(1, rtImageDescInfo);
         
         VkDescriptorImageInfo postImageDescInfo{};
-        postImageDescInfo.sampler = outImages[i].sampler;
-        postImageDescInfo.imageView = outImages[i].view;
+        postImageDescInfo.sampler = outTextures[i]->getSampler();
+        postImageDescInfo.imageView = outTextures[i]->getImageView();
         postImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         postDescSet->writeImage(0, postImageDescInfo);
 
@@ -190,7 +193,7 @@ int main() {
 
         // Render using correct pipelines.
         if (raytrace) {
-            Renderer::raytrace((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene, outImages);
+            Renderer::raytrace((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene);
         } else {
             Renderer::rasterize((Pipeline&)*pipeline, *scene);
         }
@@ -203,6 +206,8 @@ int main() {
     EngineContext::getDevice().waitIdle();
 
     // Clean up objects.
+    delete testTex2;
+    delete testTex1;
     delete cubeMat;
     delete mirrorMat;
     delete floorMat;
@@ -214,8 +219,8 @@ int main() {
     delete pipeline;
     delete RTpipeline;
     delete postPipeline;
-    for (auto image : outImages) 
-        ResourceAllocator::destroyImage(image);
+    for (auto outTexture : outTextures)
+        delete outTexture;
     for (auto buffer : cameraBuffers)
         ResourceAllocator::destroyBuffer(buffer);
     delete rtDescSet;

@@ -12,8 +12,6 @@ namespace core {
 
 	struct Image {
 		VkImage image = VK_NULL_HANDLE;
-		VkImageView view = VK_NULL_HANDLE;
-		VkSampler sampler = VK_NULL_HANDLE;
 		VmaAllocation allocation = VK_NULL_HANDLE;
 	};
 
@@ -36,13 +34,18 @@ namespace core {
 		static void createAndStageBuffer(const VkCommandBuffer& commandBuffer, const VkDeviceSize& size, const void* data, Buffer& srcBuffer, Buffer& dstBuffer, VkBufferUsageFlags usage);
 		static VkDeviceAddress getBufferDeviceAddress(const VkBuffer& buffer);
 		static VkDeviceAddress getBufferDeviceAddress(const Buffer& buffer);
-		static void destroyBuffer(const Buffer& buffer);
 		static void destroyBuffer(const VkBuffer& buffer, const VmaAllocation& allocation);
+		static void destroyBuffer(const Buffer& buffer);
 
-		static void createImage2D(const VkExtent2D& extent, const VkFormat& format, Image& image, VkImageUsageFlags usage);
-		static void createImageView2D(const VkFormat& format, Image& image);
-		static void createSampler2D(const VkSamplerAddressMode& addressMode, const bool& enableAnisotropy, Image& image);
-		static void destroyImage(const Image& buffer);
+		static void createImage2D(const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, Image& image, const VkImageUsageFlags& usage);
+		static void createAndStageImage2D(const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, const void* data, Image& image, VkImageUsageFlags usage);
+		static void createAndStageImage2D(const VkCommandBuffer& commandBuffer, const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, const void* data, Buffer& srcBuffer, Image& dstImage, VkImageUsageFlags usage);
+		static void createImageView2D(const VkFormat& format, VkImage& image, VkImageView& view);
+		static void createSampler2D(const VkSamplerAddressMode& addressMode, const bool& enableAnisotropy, VkImage& image, VkSampler& sampler);
+		static void destroyImage(const VkImage& image, const VmaAllocation& allocation);
+		static void destroyImage(const Image& image);
+		static void destroyImageView(const VkImageView& view);
+		static void destroySampler(const VkSampler& sampler);
 
 		static void createAccelerationStructure(const VkDeviceSize& size, AccelerationStructure& accelStruct, const VkAccelerationStructureTypeKHR& type);
 		static void destroyAccelerationStructure(const AccelerationStructure& accelStruct);

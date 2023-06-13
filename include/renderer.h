@@ -14,7 +14,7 @@ namespace core {
 		static void cleanup();
 
 		static void rasterize(Pipeline& pipeline, Scene& scene);
-		static void raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene, std::vector<Image>& outImages);
+		static void raytrace(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene);
 
 		static VkRenderPass& getRenderPass() { return renderPass; }
 		static VkSwapchainKHR getSwapChain() { return swapChain; }
@@ -52,7 +52,7 @@ namespace core {
 		static void createSyncObjects();
 
 		static void recordRasterizeCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Scene& scene);
-		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, std::vector<Image>& outImages, uint32_t imageIndex);
+		static void recordRaytraceCommandBuffer(const VkCommandBuffer& commandBuffer, Pipeline& rtPipeline, Pipeline& postPipeline, uint32_t imageIndex);
 
 		static VkSurfaceFormatKHR selectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> availableFormats);
 		static VkPresentModeKHR selectSwapChainPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);

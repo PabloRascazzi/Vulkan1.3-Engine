@@ -195,19 +195,20 @@ namespace core {
     //                                   Image Allocation                                    //
     //***************************************************************************************//
 
-    void ResourceAllocator::createImage2D(const VkExtent2D& extent, const VkFormat& format, Image& image, VkImageUsageFlags usage) {
+    void ResourceAllocator::createImage2D(const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, Image& image, const VkImageUsageFlags& usage) {
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
         imageInfo.format = format;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imageInfo.mipLevels = 1;
+        imageInfo.mipLevels = mipLevels;
         imageInfo.arrayLayers = 1;
         imageInfo.extent.width = extent.width;
         imageInfo.extent.height = extent.height;
         imageInfo.extent.depth = 1;
-        imageInfo.usage = usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        imageInfo.usage = usage;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         
         VmaAllocationCreateInfo imageAllocInfo{};
         imageAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -216,10 +217,104 @@ namespace core {
         VK_CHECK(vmaCreateImage(allocator, &imageInfo, &imageAllocInfo, &image.image, &image.allocation, nullptr));
     }
 
-    void ResourceAllocator::createImageView2D(const VkFormat& format, Image& image) {
+    void ResourceAllocator::createAndStageImage2D(const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, const void* data, Image& image, VkImageUsageFlags usage) {
+        // Create new command buffer.
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = commandPool;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
+
+        // Create memory transfer semaphore.
+        VkSemaphoreTypeCreateInfo timelineSemaphoreInfo{};
+        timelineSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+        timelineSemaphoreInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+        timelineSemaphoreInfo.initialValue = 0;
+
+        VkSemaphoreCreateInfo semaphoreInfo{};
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        semaphoreInfo.pNext = &timelineSemaphoreInfo;
+        
+        VkSemaphore memoryTransferComplete;
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &memoryTransferComplete));
+
+        // Record command buffer.
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+        
+        Buffer srcBuffer;
+        createAndStageImage2D(commandBuffer, extent, format, mipLevels, data, srcBuffer, image, usage);
+
+        VK_CHECK(vkEndCommandBuffer(commandBuffer));
+
+        const uint64_t signalValue = 1;
+        VkTimelineSemaphoreSubmitInfo timelineInfo{};
+        timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timelineInfo.signalSemaphoreValueCount = 1;
+        timelineInfo.pSignalSemaphoreValues = &signalValue;
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = &memoryTransferComplete;
+        submitInfo.pNext = &timelineInfo;
+
+        VK_CHECK(vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE));
+
+        // Wait for memory transfer to complete.
+        const uint64_t waitValue = 1;
+        VkSemaphoreWaitInfo waitInfo{};
+        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+        waitInfo.semaphoreCount = 1;
+        waitInfo.pSemaphores = &memoryTransferComplete;
+        waitInfo.pValues = &waitValue;
+        VK_CHECK(vkWaitSemaphores(device, &waitInfo, UINT64_MAX));
+
+        // Destroy staging buffer, command buffer, and semaphore.
+        destroyBuffer(srcBuffer);
+        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+        vkDestroySemaphore(device, memoryTransferComplete, nullptr);
+    }
+
+    void ResourceAllocator::createAndStageImage2D(const VkCommandBuffer& commandBuffer, const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, const void* data, Buffer& srcBuffer, Image& dstImage, VkImageUsageFlags usage) {
+        // Create source buffer.
+        VkDeviceSize size = extent.width * extent.height * 4;
+        createBuffer(size, srcBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+        
+        // Map data to source buffer.
+        mapDataToBuffer(srcBuffer, size, data);
+
+        // Create destination image.
+        createImage2D(extent, format, mipLevels, dstImage, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage);
+
+        // Transition image layout.
+        EngineContext::transitionImageLayout(commandBuffer, dstImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+        // Copy data from source buffer to destination image.
+        VkBufferImageCopy copyRegion{};
+        copyRegion.bufferOffset = 0;
+        copyRegion.bufferRowLength = 0;
+        copyRegion.bufferImageHeight = 0;
+        copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.imageSubresource.mipLevel = 0; // TODO - copy region for each mip levels.
+        copyRegion.imageSubresource.baseArrayLayer = 0;
+        copyRegion.imageSubresource.layerCount = 1;
+        copyRegion.imageOffset = {0, 0, 0};
+        copyRegion.imageExtent = {extent.width, extent.height, 1};
+        vkCmdCopyBufferToImage(commandBuffer, srcBuffer.buffer, dstImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+    }
+
+    void ResourceAllocator::createImageView2D(const VkFormat& format, VkImage& image, VkImageView& view) {
         VkImageViewCreateInfo imageViewInfo{};
         imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        imageViewInfo.image = image.image;
+        imageViewInfo.image = image;
         imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         imageViewInfo.format = format;
         imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -228,10 +323,10 @@ namespace core {
         imageViewInfo.subresourceRange.baseArrayLayer = 0;
         imageViewInfo.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-        VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &image.view));
+        VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &view));
     }
 
-    void ResourceAllocator::createSampler2D(const VkSamplerAddressMode& addressMode, const bool& enableAnisotropy, Image& image) {
+    void ResourceAllocator::createSampler2D(const VkSamplerAddressMode& addressMode, const bool& enableAnisotropy, VkImage& image, VkSampler& sampler) {
         VkSamplerCreateInfo samplerInfo{};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -250,17 +345,23 @@ namespace core {
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = 0.0f;
 
-        VK_CHECK(vkCreateSampler(device, &samplerInfo, nullptr, &image.sampler));
+        VK_CHECK(vkCreateSampler(device, &samplerInfo, nullptr, &sampler));
     }
 
-    void ResourceAllocator::destroyImage(const Image& image) {
-        vmaDestroyImage(allocator, image.image, image.allocation);
-        if (image.view != VK_NULL_HANDLE) {
-            vkDestroyImageView(device, image.view, nullptr);
-        }
-        if (image.sampler != VK_NULL_HANDLE) {
-            vkDestroySampler(device, image.sampler, nullptr);
-        }
+    void ResourceAllocator::destroyImage(const VkImage& image, const VmaAllocation& allocation) {
+        vmaDestroyImage(allocator, image, allocation);
+    }
+
+	void ResourceAllocator::destroyImage(const Image& image) {
+        destroyImage(image.image, image.allocation);
+    }
+
+    void ResourceAllocator::destroyImageView(const VkImageView& view) {
+        vkDestroyImageView(device, view, nullptr);
+    }
+
+    void ResourceAllocator::destroySampler(const VkSampler& sampler) {
+        vkDestroySampler(device, sampler, nullptr);
     }
 
     //***************************************************************************************//
