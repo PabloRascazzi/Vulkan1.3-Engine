@@ -245,9 +245,14 @@ namespace core {
         }
 
         // Setup physical device features to enable.
+        VkPhysicalDeviceDescriptorIndexingFeatures descIndexFeature{};
+        descIndexFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        descIndexFeature.runtimeDescriptorArray = VK_TRUE;
+
         VkPhysicalDeviceTimelineSemaphoreFeatures timeSemFeature{};
         timeSemFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR;
         timeSemFeature.timelineSemaphore = VK_TRUE;
+        timeSemFeature.pNext = &descIndexFeature;
 
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{};
         accelFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;

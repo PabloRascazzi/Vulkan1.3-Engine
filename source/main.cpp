@@ -53,17 +53,18 @@ int main() {
     Mesh* cube = ResourcePrimitives::createCube(1.0f);
 
     // Create Textures.
-    Texture* testTex1 = FileReader::readImageFile("RiverDirt_Diffuse_512.png", COLOR_SPACE_SRGB);
-    Texture* testTex2 = FileReader::readImageFile("RiverDirt_Normals_512.png", COLOR_SPACE_LINEAR);
-
-    // Create Materials.
-    Material* cubeMat =   new Material(nullptr, glm::vec3(1.0f, 0.0f, 0.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
-    Material* mirrorMat = new Material(nullptr, glm::vec3(0.0f, 1.0f, 0.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
-    Material* floorMat =  new Material(nullptr, glm::vec3(0.0f, 0.0f, 1.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
-    Material* anvilMat =   new Material(nullptr, glm::vec3(1.0f, 0.0f, 1.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+    Texture* testTex = FileReader::readImageFile("test.png", COLOR_SPACE_SRGB);
+    Texture* riverDirtDiffuse = FileReader::readImageFile("RiverDirt_Diffuse_512.png", COLOR_SPACE_SRGB);
+    Texture* riverDirtNormal = FileReader::readImageFile("RiverDirt_Normals_512.png", COLOR_SPACE_LINEAR);
 
     // Create Scene.
     Scene* scene = new Scene();
+    // Create Materials.
+    Material* cubeMat =   scene->addMaterial(riverDirtDiffuse, glm::vec3(1.0f, 0.0f, 0.0f), nullptr, 0.0f, 0.5f, riverDirtNormal, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+    Material* mirrorMat = scene->addMaterial(testTex, glm::vec3(0.0f, 1.0f, 0.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+    Material* floorMat =  scene->addMaterial(testTex, glm::vec3(0.0f, 0.0f, 1.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+    Material* anvilMat =  scene->addMaterial(riverDirtDiffuse, glm::vec3(1.0f, 0.0f, 1.0f), nullptr, 0.0f, 0.5f, riverDirtNormal, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
+    // Create Objects.
     glm::mat4 mirrorRotation = glm::rotate(glm::mat4(1.0f), glm::radians(5.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     Object* mirror1  = scene->addObject(quad, std::vector{mirrorMat}, glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, -7.5f))* (glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
     Object* mirror2  = scene->addObject(quad, std::vector{mirrorMat}, glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f,  0.0f, -2.5f)) * (glm::rotate(glm::mat4(1.0f), glm::radians(135.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * mirrorRotation), 0);
@@ -71,6 +72,7 @@ int main() {
     Object* floor    = scene->addObject(plane, std::vector{floorMat}, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
     Object* anvilObj = scene->addObject(anvil, std::vector{anvilMat}, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f,  -2.0f)), 0);
     Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow().getAspectRatio());
+    // Setup Scene.
     scene->setup();
 
     // Create DescriptorSets.
@@ -86,6 +88,7 @@ int main() {
 
     DescriptorSet* globalDescSet = new DescriptorSet();
     globalDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+    globalDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(scene->getTextures().size()), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
     globalDescSet->create(EngineContext::getDevice());
 
     // Create Camera matrices.
@@ -101,7 +104,7 @@ int main() {
     cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
 
     // Create Pipeline.
-    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), "shader", Renderer::getRenderPass(), Renderer::getSwapChainExtent());
+    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), "shader", std::vector<DescriptorSet*>{globalDescSet}, Renderer::getRenderPass(), Renderer::getSwapChainExtent());
     RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice(), std::vector<DescriptorSet*>{rtDescSet, globalDescSet});
     PostPipeline* postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{postDescSet}, Renderer::getRenderPass(), Renderer::getSwapChainExtent());
 
@@ -109,6 +112,7 @@ int main() {
     std::vector<Texture*> outTextures;
     std::vector<Buffer> cameraBuffers;
     cameraBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    VkDescriptorImageInfo* globalTextureDescInfos = new VkDescriptorImageInfo[scene->getTextures().size()*MAX_FRAMES_IN_FLIGHT];
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         DescriptorSet::setCurrentFrame(i);
 
@@ -153,11 +157,21 @@ int main() {
         objDescInfo.offset = 0;
         objDescInfo.range = VK_WHOLE_SIZE;
         rtDescSet->writeBuffer(2, objDescInfo);
+
+        // Upload texture samplers.
+        for (uint32_t texIndex = 0; texIndex < scene->getTextures().size(); texIndex++) {
+            size_t texDescIndex = texIndex + (scene->getTextures().size() * i);
+            globalTextureDescInfos[texDescIndex].sampler = scene->getTextures()[texIndex]->getSampler();
+            globalTextureDescInfos[texDescIndex].imageView = scene->getTextures()[texIndex]->getImageView();
+            globalTextureDescInfos[texDescIndex].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            globalDescSet->writeImage(1, globalTextureDescInfos[texDescIndex], texIndex);
+        }
     }
     DescriptorSet::setCurrentFrame(0);
     globalDescSet->update();
     rtDescSet->update();
     postDescSet->update();
+    delete[] globalTextureDescInfos;
 
     // Main loop
     bool raytrace = true;
@@ -206,12 +220,9 @@ int main() {
     EngineContext::getDevice().waitIdle();
 
     // Clean up objects.
-    delete testTex2;
-    delete testTex1;
-    delete cubeMat;
-    delete mirrorMat;
-    delete floorMat;
-    delete anvilMat;
+    delete riverDirtNormal;
+    delete riverDirtDiffuse;
+    delete testTex;
     delete anvil;
     delete quad;
     delete plane;

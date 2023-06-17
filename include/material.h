@@ -11,6 +11,7 @@ namespace core {
 		~Material();
 
 		void cleanup();
+		void setup(uint64_t albedoMapIndex, uint64_t metallicMapIndex, uint64_t normalMapIndex);
 
 		Buffer& getBuffer() { return materialBuffer; }
 
@@ -24,6 +25,9 @@ namespace core {
 		glm::vec2 tilling;    // Vector 2D which scales all the mapped textures.
 		glm::vec2 offset;     // Vector 2D which offsets all the mapped textures.
 
+		uint64_t albedoMapIndex;
+		uint64_t metallicMapIndex;
+		uint64_t normalMapIndex;
 		Buffer materialBuffer; // On device buffer containing the material's data.
 
 		void createMaterialBuffer(Buffer& buffer);

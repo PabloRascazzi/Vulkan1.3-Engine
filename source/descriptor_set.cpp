@@ -94,14 +94,15 @@ namespace core {
 		writes.push_back(bufferWrite);
 	}
 
-	void DescriptorSet::writeImage(uint32_t binding, VkDescriptorImageInfo& writeDescInfo) {
-        VkWriteDescriptorSet imageWrite{};
+	void DescriptorSet::writeImage(uint32_t binding, VkDescriptorImageInfo& writeDescInfo, uint32_t arrayElement) {	
+		VkWriteDescriptorSet imageWrite{};
         imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		imageWrite.descriptorType = bindings[binding].descriptorType;
         imageWrite.descriptorCount = 1;
         imageWrite.dstBinding = binding;
         imageWrite.dstSet = descriptorSets[currentFrame];
         imageWrite.pImageInfo = &writeDescInfo;
+		imageWrite.dstArrayElement = arrayElement;
 
 		writes.push_back(imageWrite);
 	}

@@ -286,6 +286,12 @@ namespace core {
         scissor.extent = swapChainExtent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+        // Bind descriptor sets.
+        std::vector<VkDescriptorSet> descSets = pipeline.getDescriptorSetHandles();
+        if (descSets.size() > 0) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+        }
+
         for (const auto& object : scene.getObjects()) {
             // Bind vertex buffer
             VkBuffer vertexBuffers[] = {object.mesh->getVertexBuffer().buffer};

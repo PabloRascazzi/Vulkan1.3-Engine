@@ -3,6 +3,7 @@
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
+layout(location = 2) in vec2 inUV;
 
 layout(push_constant) uniform constants {
     mat4 proj;
@@ -13,9 +14,11 @@ layout(push_constant) uniform constants {
 
 layout(location = 0) out flat uint64_t materialAddress;
 layout(location = 1) out vec3 fragColor;
+layout(location = 2) out vec2 outUV;
 
 void main() {
     gl_Position = PushConstants.proj * PushConstants.view * PushConstants.world * vec4(inPosition, 1.0);
     materialAddress = PushConstants.materialAddress;
     fragColor = inColor;
+    outUV = inUV;
 }

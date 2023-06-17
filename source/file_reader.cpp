@@ -78,7 +78,7 @@ namespace core {
 			std::cout << "Vertex Count: " << meshHeader.vertexCount << std::endl;
 			std::cout << "Submesh Count: " << meshHeader.submeshCount << std::endl;
 		}
-		if (meshHeader.vertexFlags != (VERTEX_FLAG_POSITION_BIT | VERTEX_FLAG_COLOR_BIT)) {
+		if (meshHeader.vertexFlags != (VERTEX_FLAG_POSITION_BIT | VERTEX_FLAG_COLOR_BIT | VERTEX_FLAG_UV_BIT)) {
 			std::cerr << "Error: Mesh file's vertex flag is invalid." << std::endl;
 			return nullptr;
 		}
@@ -135,20 +135,22 @@ namespace core {
 		// Read image file
 		std::string fullpathname = (IMAGE_FOLDER_PATH + filename);
 		int width, height, colorChannels;
-		unsigned char* data = stbi_load(fullpathname.c_str(), &width, &height, &colorChannels, 0);
+		unsigned char* data = stbi_load(fullpathname.c_str(), &width, &height, &colorChannels, 4);
 
 		// Package data into Texture
 		VkExtent2D extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 		VkFormat format;
-		switch (colorChannels) {
-			case 1: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8_UINT : VK_FORMAT_R8_SRGB); break;
-			case 2: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8_UINT : VK_FORMAT_R8G8_SRGB); break;
-			case 3: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8B8_UINT : VK_FORMAT_R8G8B8_SRGB); break;
-			case 4: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8B8A8_UINT : VK_FORMAT_R8G8B8A8_SRGB); break;
+		switch (4) {
+			case 1: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8_SRGB); break;
+			case 2: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8G8_SRGB); break;
+			case 3: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8B8_UNORM : VK_FORMAT_R8G8B8_SRGB); break;
+			case 4: format = (colorSpace == COLOR_SPACE_LINEAR ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB); break;
 			default: std::cerr << "Error: Image file's color channels count is invalid." << std::endl; return nullptr;
 		}
 		Texture* texture = new Texture(extent, data, format, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_TRUE, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-		Debugger::setObjectName(texture->getImage().image, "Texture: " + filename);
+		Debugger::setObjectName(texture->getImage().image, "[Image] " + filename);
+		Debugger::setObjectName(texture->getImageView(), "[ImageView] " + filename);
+		Debugger::setObjectName(texture->getSampler(), "[Sampler] " + filename);
 
 		// Free stbi memory
 		stbi_image_free(data);

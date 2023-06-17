@@ -4,6 +4,7 @@
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_debug_printf : enable
 
 struct HitPayload {
     vec3 hitValue;
@@ -12,13 +13,14 @@ struct HitPayload {
 struct Vertex {
     vec3 position;
     vec3 color;
+    vec2 uv;
 };
 
 struct Material {
     vec3 albedo;
-    uint64_t albedoMap;
-    uint64_t metallicMap;
-    uint64_t normalMap;
+    uint64_t albedoMapIndex;
+    uint64_t metallicMapIndex;
+    uint64_t normalMapIndex;
     float metallic;
     float smoothness;
     vec2 tilling;
@@ -38,6 +40,7 @@ layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; }; // Reference to
 layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Reference to the array of triangle indices.
 layout(buffer_reference, scalar) buffer Materials { Material m; };
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 1) uniform sampler2D textures[];
 layout(binding = 2, set = 0, scalar) buffer ObjDesc_ { ObjDesc i[]; } objDesc; 
 
 void main() {
@@ -62,13 +65,18 @@ void main() {
     const vec3 position = v0.position * barycentrics.x + v1.position * barycentrics.y + v2.position * barycentrics.z;
     const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(position, 1.0));  // Transforming the position to world space
 
+    // Computing the color at hit position.
+    const vec3 color = v0.color * barycentrics.x + v1.color * barycentrics.y + v2.color * barycentrics.z;
+
+    // Computing the UV coordinates at the hit position.
+    const vec2 uv = v0.uv * barycentrics.x + v1.uv * barycentrics.y + v2.uv * barycentrics.z;
+
 //    // Computing the normal at hit position.
 //    const vec3 normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
 //    const vec3 worldNrm = normalize(vec3(normal * gl_WorldToObjectEXT));  // Transforming the normal to world space
 
-    // Computing the color at hit position.
-    const vec3 color = v0.color * barycentrics.x + v1.color * barycentrics.y + v2.color * barycentrics.z;
-
-    prd.hitValue = color;
+    //prd.hitValue = color;
     //prd.hitValue = material.m.albedo;
+    //prd.hitValue = texture(textures[uint(material.m.albedoMap)], vec2(0.5, 0.5)).rgb;
+    prd.hitValue = texture(textures[uint(material.m.albedoMapIndex)], uv).rgb;
 }

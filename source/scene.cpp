@@ -18,6 +18,9 @@ namespace core {
 	}
 
 	void Scene::cleanup() {
+		// Delete all scene materials.
+		for (auto& material : materials) delete material;
+		materials.clear();
 		// Delete all scene cameras.
 		for (auto& camera : cameras) delete camera;
 		cameras.clear();
@@ -44,8 +47,38 @@ namespace core {
 		Object obj = {mesh, mats, transform, shader};
 		objects.push_back(obj);
 		meshes.insert(mesh);
-		for (auto material : mats) materials.insert(material);
 		return &objects[objects.size()-1];
+	}
+	
+	uint64_t nextTextureIndex = 0;
+	Material* Scene::addMaterial(Texture* albedoMap, glm::vec3 albedo, Texture* metallicMap, float metallic, float smoothness, Texture* normalMap, glm::vec2 tilling, glm::vec2 offset) {
+		// Lambda expresion to find texture index.
+		auto findTextureIndex = [](Texture* pTexture, std::map<Texture*, uint64_t>& textureIndices, std::vector<Texture*>& textures) {
+			uint64_t textureIndex = 0xFFFFFFFFFFFFFFFF;
+			if (pTexture != nullptr) {
+				if (auto index = textureIndices.find(pTexture); index != textureIndices.end()) {
+					textureIndex = index->second;
+				}
+				else {
+					textureIndex = nextTextureIndex++;
+					textureIndices.emplace(pTexture, textureIndex);
+					textures.push_back(pTexture);
+					EngineContext::transitionImageLayout(pTexture->getImage().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				}
+			}
+			return textureIndex;
+		};
+		
+		// Find all texture indices.
+		uint64_t albedoMapIndex = findTextureIndex(albedoMap, textureIndices, textures);
+		uint64_t metallicMapIndex = findTextureIndex(metallicMap, textureIndices, textures);
+		uint64_t normalMapIndex = findTextureIndex(normalMap, textureIndices, textures);
+		
+		// Create and setup material.
+		Material* material = new Material(albedoMap, albedo, metallicMap, metallic, smoothness, normalMap, tilling, offset);
+		material->setup(albedoMapIndex, metallicMapIndex, normalMapIndex);
+		materials.push_back(material);
+		return material;
 	}
 
 	void Scene::setMainCamera(Camera* camera) {
