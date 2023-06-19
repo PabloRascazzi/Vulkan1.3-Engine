@@ -176,6 +176,7 @@ namespace core {
         deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME); // Required to build acceleration structures.
         deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME); // Required for ray tracing pipeline.
         deviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME); // Required to build and use ray tracing pipeline.
+        deviceExtensions.push_back(VK_KHR_16BIT_STORAGE_EXTENSION_NAME); // Required to access 16 bit storage data from shaders.
         if (Debugger::debugReportEnabled) {
             deviceExtensions.push_back(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME); // Required for the "GLSL_EXT_debug_printf" shader extension.
         }
@@ -245,9 +246,14 @@ namespace core {
         }
 
         // Setup physical device features to enable.
+        VkPhysicalDevice16BitStorageFeaturesKHR shader16bitFeature{};
+        shader16bitFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
+        shader16bitFeature.storageBuffer16BitAccess = VK_TRUE;
+
         VkPhysicalDeviceDescriptorIndexingFeatures descIndexFeature{};
         descIndexFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         descIndexFeature.runtimeDescriptorArray = VK_TRUE;
+        descIndexFeature.pNext = &shader16bitFeature;
 
         VkPhysicalDeviceTimelineSemaphoreFeatures timeSemFeature{};
         timeSemFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR;

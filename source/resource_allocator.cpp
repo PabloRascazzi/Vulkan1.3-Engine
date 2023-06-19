@@ -80,6 +80,25 @@ namespace core {
         createBuffer(size, buffer.buffer, buffer.allocation, usage);
     }
 
+    void ResourceAllocator::createBufferWithAlignment(const VkDeviceSize& size, const VkDeviceSize& minAlignment, VkBuffer& buffer, VmaAllocation& allocation, VkBufferUsageFlags usage) {
+        VkBufferCreateInfo bufferCreateInfo{};
+		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferCreateInfo.size = size;
+		bufferCreateInfo.usage = usage;
+		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        
+        VmaAllocationCreateInfo allocCreateInfo{};
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+        VmaAllocationInfo allocInfo;
+        VK_CHECK(vmaCreateBufferWithAlignment(allocator, &bufferCreateInfo, &allocCreateInfo, minAlignment, &buffer, &allocation, &allocInfo));
+    }
+
+    void ResourceAllocator::createBufferWithAlignment(const VkDeviceSize& size, const VkDeviceSize& minAlignment, Buffer& buffer, VkBufferUsageFlags usage) {
+        createBufferWithAlignment(size, minAlignment, buffer.buffer, buffer.allocation, usage);
+    }
+
     void ResourceAllocator::mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const uint32_t& offset) {
         uint8_t* location;
         vmaMapMemory(allocator, buffer.allocation, (void**)&location);

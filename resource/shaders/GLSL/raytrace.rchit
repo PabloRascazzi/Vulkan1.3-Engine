@@ -2,6 +2,7 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_shader_16bit_storage : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference2 : require
 #extension GL_EXT_debug_printf : enable
@@ -18,9 +19,9 @@ struct Vertex {
 
 struct Material {
     vec3 albedo;
-    uint64_t albedoMapIndex;
-    uint64_t metallicMapIndex;
-    uint64_t normalMapIndex;
+    uint16_t albedoMapIndex;
+    uint16_t metallicMapIndex;
+    uint16_t normalMapIndex;
     float metallic;
     float smoothness;
     vec2 tilling;

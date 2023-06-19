@@ -50,7 +50,7 @@ namespace core {
 		std::vector<Object> objects;
 		std::vector<Material*> materials;
 		std::unordered_set<Mesh*> meshes;
-		std::map<Texture*, uint64_t> textureIndices;
+		std::map<Texture*, uint16_t> textureIndices;
 
 		std::vector<Texture*> textures;
 		std::vector<ObjDesc> objDescriptions;

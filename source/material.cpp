@@ -5,9 +5,9 @@ namespace core {
 	// Material data structure (Must match the shader's material structure).
 	struct MaterialData {
 		alignas(16) glm::vec3 albedo;     // 16 bytes
-		alignas(8)  uint64_t albedoMap;   //  8 bytes
-		alignas(8)  uint64_t metallicMap; //  8 bytes
-		alignas(8)  uint64_t normalMap;   //  8 bytes
+		alignas(2)  uint16_t albedoMap;   //  2 bytes
+		alignas(2)  uint16_t metallicMap; //  2 bytes
+		alignas(2)  uint16_t normalMap;   //  2 bytes
 		alignas(4)  float metallic;       //  4 bytes
 		alignas(4)  float smoothness;     //  4 bytes
 		alignas(8)  glm::vec2 tilling;    //  8 bytes
@@ -16,9 +16,9 @@ namespace core {
 
 	Material::Material(Texture* albedoMap, glm::vec3 albedo, Texture* metallicMap, float metallic, float smoothness, Texture* normalMap, glm::vec2 tilling, glm::vec2 offset) 
 		: albedoMap(albedoMap), albedo(albedo), metallicMap(metallicMap), metallic(metallic), smoothness(smoothness), normalMap(normalMap), tilling(tilling), offset(offset) {
-		this->albedoMapIndex = 0xFFFFFFFFFFFFFFFF;
-		this->metallicMapIndex = 0xFFFFFFFFFFFFFFFF;
-		this->normalMapIndex = 0xFFFFFFFFFFFFFFFF;
+		this->albedoMapIndex = 0xFFFF;
+		this->metallicMapIndex = 0xFFFF;
+		this->normalMapIndex = 0xFFFF;
 	}
 
 	Material::~Material() { 
@@ -29,7 +29,7 @@ namespace core {
 		ResourceAllocator::destroyBuffer(materialBuffer);
 	}
 
-	void Material::setup(uint64_t albedoMapIndex, uint64_t metallicMapIndex, uint64_t normalMapIndex) {
+	void Material::setup(uint16_t albedoMapIndex, uint16_t metallicMapIndex, uint16_t normalMapIndex) {
 		this->albedoMapIndex = albedoMapIndex;
 		this->metallicMapIndex = metallicMapIndex;
 		this->normalMapIndex = normalMapIndex;
