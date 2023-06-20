@@ -1,6 +1,6 @@
 #include <engine_globals.h>
 #include <engine_context.h>
-#include <time.h>
+#include <rtime.h>
 #include <pipeline/standard_pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
 #include <renderer.h>

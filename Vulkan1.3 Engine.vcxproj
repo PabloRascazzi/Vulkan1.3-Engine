@@ -183,7 +183,7 @@
     <ClCompile Include="source\pipeline\standard_pipeline.cpp" />
     <ClCompile Include="source\file_reader.cpp" />
     <ClCompile Include="source\texture.cpp" />
-    <ClCompile Include="source\time.cpp" />
+    <ClCompile Include="source\rtime.cpp" />
     <ClCompile Include="source\vulkan_extension.cpp" />
     <ClCompile Include="source\window.cpp" />
   </ItemGroup>
@@ -206,7 +206,7 @@
     <ClInclude Include="include\pipeline\raytracing_pipeline.h" />
     <ClInclude Include="include\pipeline\standard_pipeline.h" />
     <ClInclude Include="include\texture.h" />
-    <ClInclude Include="include\time.h" />
+    <ClInclude Include="include\rtime.h" />
     <ClInclude Include="include\window.h" />
   </ItemGroup>
   <ItemGroup>

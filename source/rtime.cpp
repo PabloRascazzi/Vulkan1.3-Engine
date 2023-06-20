@@ -1,4 +1,4 @@
-#include <time.h>
+#include <rtime.h>
 #include <SDL2/SDL.h>
 #include <iostream>
 

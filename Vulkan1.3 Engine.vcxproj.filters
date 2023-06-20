@@ -4,9 +4,6 @@
     <ClCompile Include="source\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\time.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\engine_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -64,12 +61,12 @@
     <ClCompile Include="source\texture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\rtime.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\window.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\time.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\input.h">
@@ -124,6 +121,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\texture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\rtime.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

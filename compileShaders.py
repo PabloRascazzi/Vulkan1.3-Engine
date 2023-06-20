@@ -1,9 +1,9 @@
 from subprocess import run
-from os import path, makedirs
+from os import path, makedirs, environ
 from pathlib import Path
 
 # Absolute file path of glslc.exe
-COMPILER_PATH = "C:/VulkanSDK/1.3.236.0/Bin/glslc.exe"
+COMPILER_PATH = environ['VULKAN_SDK'] + "/Bin/glslc.exe"
 # Compiler variables.
 TARGET_ENV = "vulkan1.3"
 # Relative file paths for the GLSL and SPIR-V files.
