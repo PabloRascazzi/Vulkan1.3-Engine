@@ -49,9 +49,6 @@
     <ClCompile Include="source\debugger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\file_reader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -63,6 +60,15 @@
     </ClCompile>
     <ClCompile Include="source\rtime.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\pathtraced_renderer.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\standard_renderer.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\renderer.cpp">
+      <Filter>Source Files\Renderer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -108,9 +114,6 @@
     <ClInclude Include="include\debugger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\renderer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\engine_globals.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -125,6 +128,15 @@
     </ClInclude>
     <ClInclude Include="include\rtime.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\renderer\pathtraced_renderer.h">
+      <Filter>Header Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\renderer\standard_renderer.h">
+      <Filter>Header Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\renderer\renderer.h">
+      <Filter>Header Files\Renderer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -148,6 +160,12 @@
     </Filter>
     <Filter Include="Source Files\Pipeline">
       <UniqueIdentifier>{7315f748-947f-42a9-9627-813248d0de29}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Renderer">
+      <UniqueIdentifier>{3e1b11ce-3057-4383-a128-93f32671b5b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Renderer">
+      <UniqueIdentifier>{f4fd4171-b6f9-4467-b96b-cff926f770d1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

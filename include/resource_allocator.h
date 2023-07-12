@@ -42,7 +42,7 @@ namespace core {
 		static void createImage2D(const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, Image& image, const VkImageUsageFlags& usage);
 		static void createAndStageImage2D(const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, const void* data, Image& image, VkImageUsageFlags usage);
 		static void createAndStageImage2D(const VkCommandBuffer& commandBuffer, const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, const void* data, Buffer& srcBuffer, Image& dstImage, VkImageUsageFlags usage);
-		static void createImageView2D(const VkFormat& format, VkImage& image, VkImageView& view);
+		static void createImageView2D(VkImage& image, VkImageView& view, const VkFormat& format, const VkImageAspectFlags aspectFlags);
 		static void createSampler2D(const VkSamplerAddressMode& addressMode, const bool& enableAnisotropy, VkImage& image, VkSampler& sampler);
 		static void destroyImage(const VkImage& image, const VmaAllocation& allocation);
 		static void destroyImage(const Image& image);

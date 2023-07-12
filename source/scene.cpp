@@ -63,7 +63,7 @@ namespace core {
 					textureIndex = nextTextureIndex++;
 					textureIndices.emplace(pTexture, textureIndex);
 					textures.push_back(pTexture);
-					EngineContext::transitionImageLayout(pTexture->getImage().image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+					EngineContext::transitionImageLayout(pTexture->getImage().image, pTexture->getFormat(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 				}
 			}
 			return textureIndex;

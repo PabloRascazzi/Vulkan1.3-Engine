@@ -1,6 +1,7 @@
 #include <engine_globals.h>
 #include <engine_context.h>
-#include <renderer.h>
+#include <renderer/standard_renderer.h>
+#include <renderer/pathtraced_renderer.h>
 #include <input.h>
 #include <mesh.h>
 #include <texture.h>
@@ -102,11 +103,15 @@ int main() {
     cameraUBO.viewProj = scene->getMainCamera().getProjectionMatrix() * scene->getMainCamera().getViewMatrix();
     cameraUBO.viewInverse = scene->getMainCamera().getViewInverseMatrix();
     cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
+    
+    // Create Renderer.
+    StandardRenderer* renderer = new StandardRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue());
+    PathTracedRenderer* ptRenderer = new PathTracedRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue());
 
     // Create Pipeline.
-    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), "shader", std::vector<DescriptorSet*>{globalDescSet}, Renderer::getRenderPass(), Renderer::getSwapChainExtent());
+    StandardPipeline* pipeline = new StandardPipeline(EngineContext::getDevice(), "shader", std::vector<DescriptorSet*>{globalDescSet}, renderer->getRenderPass(), Renderer::getSwapChainExtent());
     RayTracingPipeline* RTpipeline = new RayTracingPipeline(EngineContext::getDevice(), std::vector<DescriptorSet*>{rtDescSet, globalDescSet});
-    PostPipeline* postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{postDescSet}, Renderer::getRenderPass(), Renderer::getSwapChainExtent());
+    PostPipeline* postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{postDescSet}, ptRenderer->getRenderPass(), Renderer::getSwapChainExtent());
 
     // Fill DescriptorSets and create out images for ray-tracing render pass.
     std::vector<Texture*> outTextures;
@@ -126,7 +131,7 @@ int main() {
         // Upload ray-tracing render pass output image uniform.
         VkExtent2D outExtent = VkExtent2D{Renderer::getSwapChainExtent()};
         Texture* outTexture = new Texture(outExtent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        EngineContext::transitionImageLayout(outTexture->getImage().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        EngineContext::transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
         outTextures.push_back(outTexture);
 
         VkDescriptorImageInfo rtImageDescInfo{};
@@ -207,9 +212,9 @@ int main() {
 
         // Render using correct pipelines.
         if (raytrace) {
-            Renderer::raytrace((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene);
+            ptRenderer->render((Pipeline&)*RTpipeline, (Pipeline&)*postPipeline, *scene);
         } else {
-            Renderer::rasterize((Pipeline&)*pipeline, *scene);
+            renderer->render((Pipeline&)*pipeline, *scene);
         }
 
         // Reset Inputs.
@@ -228,6 +233,8 @@ int main() {
     delete plane;
     delete cube;
     delete pipeline;
+    delete renderer;
+    delete ptRenderer;
     delete RTpipeline;
     delete postPipeline;
     for (auto outTexture : outTextures)
@@ -239,6 +246,7 @@ int main() {
     delete globalDescSet;
     delete scene;
     // Clean up engine.
+    Renderer::destroySwapchain();
     EngineContext::cleanup();
     Input::cleanup();
 

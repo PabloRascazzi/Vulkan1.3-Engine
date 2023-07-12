@@ -14,7 +14,7 @@ namespace core {
 		} else {
 			ResourceAllocator::createAndStageImage2D(extent, format, mipLevels, data, image, usage);
 		}
-		ResourceAllocator::createImageView2D(format, image.image, view);
+		ResourceAllocator::createImageView2D(image.image, view, format, VK_IMAGE_ASPECT_COLOR_BIT);
 		ResourceAllocator::createSampler2D(samplerAddressMode, enableAnisotropy, image.image, sampler);
 	}
 

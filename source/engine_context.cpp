@@ -3,7 +3,6 @@
 #include <rtime.h>
 #include <pipeline/standard_pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
-#include <renderer.h>
 
 #include <vulkan/vulkan.hpp>
 #define VMA_IMPLEMENTATION
@@ -61,7 +60,6 @@ namespace core {
             ResourceAllocator::setup(instance, physicalDevice, device, queryQueueFamilies(physicalDevice).graphicsFamily.value());
             Debugger::setup(instance, device);
             createCommandPool();
-            Renderer::setup(device, graphicsQueue, presentQueue);
         }
         catch (const std::runtime_error& e) {
             std::cout << e.what() << std::endl;
@@ -81,7 +79,6 @@ namespace core {
 
     void EngineContext::cleanup() {
         // Destroy all vulkan objects
-        Renderer::cleanup();
         device.destroyCommandPool(commandPool);
         Debugger::cleanup();
         ResourceAllocator::cleanup();
@@ -423,7 +420,7 @@ namespace core {
         }
     }
 
-    void EngineContext::transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout) {
+    void EngineContext::transitionImageLayout(const VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
         VkCommandBuffer commandBuffer;
         createCommandBuffer(&commandBuffer, 1);
 
@@ -446,7 +443,7 @@ namespace core {
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
         
-        transitionImageLayout(commandBuffer, image, oldLayout, newLayout);
+        transitionImageLayout(commandBuffer, image, format, oldLayout, newLayout);
 
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
 
@@ -480,7 +477,7 @@ namespace core {
         vkDestroySemaphore(device, imageTransitionComplete, nullptr);
     }
 
-    void EngineContext::transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout) {
+    void EngineContext::transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         barrier.oldLayout = oldLayout;
@@ -488,7 +485,6 @@ namespace core {
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.image = image;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.baseArrayLayer = 0;
@@ -497,6 +493,18 @@ namespace core {
         VkPipelineStageFlags srcStage;
         VkPipelineStageFlags dstStage;
 
+        // Set correct apsect mask.
+        if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+            if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) {
+                barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+            }
+        } else {
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+
+        // Set correct access masks and pipeline stages. 
         if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
             barrier.srcAccessMask = 0;
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -507,6 +515,11 @@ namespace core {
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
             dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;

@@ -76,8 +76,8 @@ namespace core {
 		static SwapChainSupport getSwapChainSupport() { return querySwapChainSupport(physicalDevice); }
 
 		static void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
-		static void transitionImageLayout(const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
-		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkImageLayout oldLayout, VkImageLayout newLayout);
+		static void transitionImageLayout(const VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 		static void exit();
 

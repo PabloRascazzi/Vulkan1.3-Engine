@@ -2,9 +2,6 @@
 #include <engine_globals.h>
 #include <engine_context.h>
 
-#define VK_CHECK_MSG(func, msg) if(func != VK_SUCCESS) { throw std::runtime_error(msg); }
-#define VK_CHECK(func) VK_CHECK_MSG(func, "Vulkan error detected at line " + std::to_string(__LINE__) + " .");
-
 namespace core {
 
     VkDevice ResourceAllocator::device;
@@ -314,7 +311,7 @@ namespace core {
         createImage2D(extent, format, mipLevels, dstImage, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage);
 
         // Transition image layout.
-        EngineContext::transitionImageLayout(commandBuffer, dstImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        EngineContext::transitionImageLayout(commandBuffer, dstImage.image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         // Copy data from source buffer to destination image.
         VkBufferImageCopy copyRegion{};
@@ -330,13 +327,17 @@ namespace core {
         vkCmdCopyBufferToImage(commandBuffer, srcBuffer.buffer, dstImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
     }
 
-    void ResourceAllocator::createImageView2D(const VkFormat& format, VkImage& image, VkImageView& view) {
+    void ResourceAllocator::createImageView2D(VkImage& image, VkImageView& view, const VkFormat& format, const VkImageAspectFlags aspectFlags) {
         VkImageViewCreateInfo imageViewInfo{};
         imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         imageViewInfo.image = image;
         imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         imageViewInfo.format = format;
-        imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageViewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewInfo.subresourceRange.aspectMask = aspectFlags;
         imageViewInfo.subresourceRange.baseMipLevel = 0;
         imageViewInfo.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
         imageViewInfo.subresourceRange.baseArrayLayer = 0;

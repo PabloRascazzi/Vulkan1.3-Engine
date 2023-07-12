@@ -132,6 +132,19 @@ namespace core {
 		multisamplingInfo.sampleShadingEnable = VK_FALSE;
 		multisamplingInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+		// Depth and stencil state create info.
+		VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
+		depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		depthStencilInfo.depthTestEnable = VK_TRUE;
+		depthStencilInfo.depthWriteEnable = VK_TRUE;
+		depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+		depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
+		depthStencilInfo.minDepthBounds = 0.0f;
+		depthStencilInfo.maxDepthBounds = 1.0f;
+		depthStencilInfo.stencilTestEnable = VK_FALSE;
+		depthStencilInfo.front = {}; // Optional
+		depthStencilInfo.back = {}; // Optional
+
 		// Color blending attachment state and create info.
 		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -160,7 +173,7 @@ namespace core {
 		pipelineInfo.pViewportState = &viewportStateInfo;
 		pipelineInfo.pRasterizationState = &rasterizerInfo;
 		pipelineInfo.pMultisampleState = &multisamplingInfo;
-		pipelineInfo.pDepthStencilState = nullptr;
+		pipelineInfo.pDepthStencilState = &depthStencilInfo;
 		pipelineInfo.pColorBlendState = &colorBlendInfo;
 		pipelineInfo.pDynamicState = &dynamicStateInfo;
 		pipelineInfo.layout = layout;
