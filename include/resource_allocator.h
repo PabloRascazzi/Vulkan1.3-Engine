@@ -8,6 +8,7 @@ namespace core {
 		VkBuffer buffer = VK_NULL_HANDLE;
 		VmaAllocation allocation = VK_NULL_HANDLE;
 		VkDeviceAddress getDeviceAddress();
+		bool isCreated();
 	};
 
 	struct Image {

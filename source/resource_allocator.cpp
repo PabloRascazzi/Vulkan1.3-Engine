@@ -13,6 +13,10 @@ namespace core {
         return ResourceAllocator::getBufferDeviceAddress(this->buffer);
     }
 
+    bool Buffer::isCreated() {
+        return !(this->buffer == VK_NULL_HANDLE);
+    }
+
     VkDeviceAddress AccelerationStructure::getDeviceAddress() {
         return ResourceAllocator::getBufferDeviceAddress(this->buffer);
     }

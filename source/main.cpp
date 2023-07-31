@@ -97,6 +97,7 @@ int main() {
         glm::mat4 viewProj;    // view * projection
         glm::mat4 viewInverse; // inverse view matrix
         glm::mat4 projInverse; // inverse projection matrix
+        glm::vec3 position; // camera's world position
     };
 
     CameraUniformBufferObject cameraUBO{};
@@ -232,21 +233,21 @@ int main() {
     delete quad;
     delete plane;
     delete cube;
-    delete pipeline;
-    delete renderer;
-    delete ptRenderer;
-    delete RTpipeline;
-    delete postPipeline;
-    for (auto outTexture : outTextures)
-        delete outTexture;
-    for (auto buffer : cameraBuffers)
-        ResourceAllocator::destroyBuffer(buffer);
-    delete rtDescSet;
-    delete postDescSet;
-    delete globalDescSet;
+//    delete pipeline;
+//    delete renderer;
+//    delete ptRenderer;
+//    delete RTpipeline;
+//    delete postPipeline;
+//    for (auto outTexture : outTextures)
+//        delete outTexture;
+//    for (auto buffer : cameraBuffers)
+//        ResourceAllocator::destroyBuffer(buffer);
+//    delete rtDescSet;
+//    delete postDescSet;
+//    delete globalDescSet;
     delete scene;
     // Clean up engine.
-    Renderer::destroySwapchain();
+//    Renderer::destroySwapchain();
     EngineContext::cleanup();
     Input::cleanup();
 
