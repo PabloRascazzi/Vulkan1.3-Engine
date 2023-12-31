@@ -3,7 +3,7 @@
 
 namespace core {
 
-    PathTracedRenderer::PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue) : Renderer(device, graphicsQueue, presentQueue) {
+    PathTracedRenderer::PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain) : Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain) {
         createRenderPass();
         createFramebuffers();
         createCommandBuffers();
@@ -28,7 +28,7 @@ namespace core {
 
     void PathTracedRenderer::createRenderPass() {
         VkAttachmentDescription colorAttachmentDesc{};
-        colorAttachmentDesc.format = swapChainImageFormat;
+        colorAttachmentDesc.format = swapChain.format;
         colorAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
         colorAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -67,18 +67,18 @@ namespace core {
     }
 
     void PathTracedRenderer::createFramebuffers() {
-        swapChainFramebuffers.resize(swapChainImageViews.size());
+        swapChainFramebuffers.resize(swapChain.imageViews.size());
 
-        for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-            std::array<VkImageView, 1> attachments = { swapChainImageViews[i] };
+        for (size_t i = 0; i < swapChain.imageViews.size(); i++) {
+            std::array<VkImageView, 1> attachments = { swapChain.imageViews[i] };
 
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
             framebufferInfo.renderPass = renderPass;
             framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
             framebufferInfo.pAttachments = attachments.data();
-            framebufferInfo.width = swapChainExtent.width;
-            framebufferInfo.height = swapChainExtent.height;
+            framebufferInfo.width = swapChain.extent.width;
+            framebufferInfo.height = swapChain.extent.height;
             framebufferInfo.layers = 1;
 
             VK_CHECK(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]));
@@ -129,8 +129,8 @@ namespace core {
 
         // Draw ray-traced.
         SBTWrapper sbt = ((RayTracingPipeline*)&rtPipeline)->getSBT();
-        uint32_t width = swapChainExtent.width;
-        uint32_t height = swapChainExtent.height;
+        uint32_t width = swapChain.extent.width;
+        uint32_t height = swapChain.extent.height;
         vkCmdTraceRaysKHR(commandBuffer, &sbt.rgenRegion, &sbt.missRegion, &sbt.hitRegion, &sbt.callRegion, width, height, 1);
 
         // Begin render pass
@@ -139,7 +139,7 @@ namespace core {
         renderPassInfo.renderPass = renderPass;
         renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
         renderPassInfo.renderArea.offset = { 0,0 };
-        renderPassInfo.renderArea.extent = swapChainExtent;
+        renderPassInfo.renderArea.extent = swapChain.extent;
         VkClearValue clearColor = { {{0.1f, 0.1f, 0.1f, 1.0f}} };
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = &clearColor;
@@ -153,15 +153,15 @@ namespace core {
         VkViewport viewport{};
         viewport.x = 0.0f;
         viewport.y = 0.0f;
-        viewport.width = static_cast<float>(swapChainExtent.width);
-        viewport.height = static_cast<float>(swapChainExtent.height);
+        viewport.width = static_cast<float>(swapChain.extent.width);
+        viewport.height = static_cast<float>(swapChain.extent.height);
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
         VkRect2D scissor{};
         scissor.offset = { 0,0 };
-        scissor.extent = swapChainExtent;
+        scissor.extent = swapChain.extent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         // Bind descriptor sets.
@@ -178,7 +178,7 @@ namespace core {
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
     }
 
-    void PathTracedRenderer::render(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene) {
+    void PathTracedRenderer::render(const uint32_t currentFrame, Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene) {
         // Wait until previous frame has finished.
         VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
         VK_CHECK(vkResetFences(device, 1, (VkFence*)&inFlightFences[currentFrame]));
@@ -188,7 +188,7 @@ namespace core {
 
         // Acquire next image from swap chain.
         uint32_t imageIndex;
-        VK_CHECK(vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex));
+        VK_CHECK(vkAcquireNextImageKHR(device, swapChain.handle, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex));
 
         // Reset command buffer.
         VK_CHECK(vkResetCommandBuffer(commandBuffers[currentFrame], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
@@ -219,14 +219,11 @@ namespace core {
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
         presentInfo.swapchainCount = 1;
-        VkSwapchainKHR swapChains[] = { swapChain };
+        VkSwapchainKHR swapChains[] = { swapChain.handle };
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &imageIndex;
         presentInfo.pResults = nullptr;
 
         VK_CHECK(vkQueuePresentKHR(presentQueue, &presentInfo));
-
-        // Set next frame index.
-        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 }

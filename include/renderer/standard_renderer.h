@@ -1,4 +1,5 @@
 #pragma once
+#include <engine_renderer.h>
 #include <renderer/renderer.h>
 #include <pipeline/pipeline.h>
 #include <resource_allocator.h>
@@ -9,17 +10,18 @@
 
 namespace core {
 
-	class StandardRenderer : Renderer {
+	class StandardRenderer : public Renderer {
 	public:
-		StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue);
+		StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain);
 		~StandardRenderer();
 
 		virtual void cleanup();
-		virtual void render(Pipeline& pipeline, Scene& scene);
+		virtual void render(const uint32_t currentFrame, Pipeline& pipeline, Scene& scene);
 
 		VkRenderPass& getRenderPass() { return renderPass; }
 
 	private:
+		Swapchain& swapChain;
 		VkRenderPass renderPass;
 		std::vector<VkFramebuffer> swapChainFramebuffers;
 

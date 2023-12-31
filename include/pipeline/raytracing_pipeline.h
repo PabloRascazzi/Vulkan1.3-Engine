@@ -34,7 +34,7 @@ namespace core {
 		VkStridedDeviceAddressRegionKHR callRegion{};
 	};
 
-	class RayTracingPipeline  : Pipeline {
+	class RayTracingPipeline  : public Pipeline {
 	public:
 		RayTracingPipeline(VkDevice device);
 		RayTracingPipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets);

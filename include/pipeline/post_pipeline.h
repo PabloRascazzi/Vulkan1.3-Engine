@@ -9,7 +9,7 @@
 
 namespace core {
 
-	class PostPipeline : Pipeline {
+	class PostPipeline : public Pipeline {
 	public:
 		PostPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent);
 		PostPipeline(VkDevice device, std::string filename, std::vector<DescriptorSet*> descriptorSets, VkRenderPass renderPass, VkExtent2D swapChainExtent);

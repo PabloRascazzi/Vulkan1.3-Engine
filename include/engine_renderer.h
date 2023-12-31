@@ -26,9 +26,10 @@ namespace core {
 
 	class EngineRenderer {
 	public:
-		static void setup();
+		static void setup(Scene* scene);
 		static void cleanup();
-		static void render();
+		static void render(const bool raytrace);
+		static void renderToImage(Image& image); // TODO - render to an image instead of a swapchain framebuffer.
 
 		static Swapchain& getSwapchain() { return swapchain; }
 		static uint32_t getCurrentSwapchainIndex() { return currentSwapchainIndex; }
@@ -42,15 +43,22 @@ namespace core {
 
 		// Current scene to render.
 		static Scene* scene; 
-
+		
+		// Descriptor Sets.
 		static DescriptorSet* globalDescSet;
+		static DescriptorSet* rtDescSet; // TODO - move to PathTracedRenderer class.
+		static DescriptorSet* postDescSet; // TODO  - move to PathTracedRenderer class.
+
+		// Descriptor buffers.
 		static std::vector<Buffer> cameraDescBuffers;
+		static std::vector<Texture*> rtDescTextures; // TODO  - move to PathTracedRenderer class.
 
 		// Instances for all the renderers.
 		static Renderer* standardRenderer;
 		static Renderer* raytracedRenderer;
 		static Renderer* pathtracedRenderer;
 
+		// Instances for all the pipelines.
 		static Pipeline* standardPipeline; // TODO - move pipelines to Renderer classes.
 		static Pipeline* pathtracedPipeline; // TODO - move pipelines to Renderer classes.
 		static Pipeline* postPipeline; // TODO - move pipelines to Renderer classes.
@@ -59,6 +67,7 @@ namespace core {
 		static void createDescriptorSets();
 		static void createRenderers();
 		static void createPipelines(); // TODO - move pipelines to Renderer classes.
+		static void initDescriptorSets();
 
 		// Recreates the swapchain.
 		static void updateSwapchain();

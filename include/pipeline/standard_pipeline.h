@@ -20,7 +20,7 @@ namespace core {
 		}
 	};
 
-	class StandardPipeline : Pipeline {
+	class StandardPipeline : public Pipeline {
 	public:
 		StandardPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent);
 		StandardPipeline(VkDevice device, std::string filename, std::vector<DescriptorSet*> descriptorSets, VkRenderPass renderPass, VkExtent2D swapChainExtent);

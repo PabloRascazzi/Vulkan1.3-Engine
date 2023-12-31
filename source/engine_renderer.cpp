@@ -1,21 +1,66 @@
 #include <engine_renderer.h>
 #include <engine_context.h>
 #include <SDL2/SDL_vulkan.h>
+#include <renderer/standard_renderer.h>
+#include <renderer/pathtraced_renderer.h>
+#include <pipeline/standard_pipeline.h>
+#include <pipeline/raytracing_pipeline.h>
+#include <pipeline/post_pipeline.h>
 
 namespace core {
 
-	void EngineRenderer::setup() {
+    // Swapchain for the main window surface.
+    Swapchain EngineRenderer::swapchain;
+    uint32_t EngineRenderer::currentSwapchainIndex;
+
+    // Current scene to render.
+    Scene* EngineRenderer::scene;
+
+    // Descriptor Sets.
+    DescriptorSet* EngineRenderer::globalDescSet;
+    DescriptorSet* EngineRenderer::rtDescSet;
+    DescriptorSet* EngineRenderer::postDescSet;
+
+    // Descriptor buffers.
+    std::vector<Buffer> EngineRenderer::cameraDescBuffers;
+    std::vector<Texture*> EngineRenderer::rtDescTextures;
+
+    // Instances for all the renderers.
+    Renderer* EngineRenderer::standardRenderer;
+    Renderer* EngineRenderer::raytracedRenderer;
+    Renderer* EngineRenderer::pathtracedRenderer;
+
+    // Instances for all the pipelines.
+    Pipeline* EngineRenderer::standardPipeline;
+    Pipeline* EngineRenderer::pathtracedPipeline;
+    Pipeline* EngineRenderer::postPipeline;
+
+	void EngineRenderer::setup(Scene* scene) {
+        EngineRenderer::scene = scene;
 		createSwapChain();
         createDescriptorSets();
+        createRenderers();
+        createPipelines();
+        initDescriptorSets();
 	}
 
     void EngineRenderer::cleanup() {
         // Cleanup renderers.
-        delete standardRenderer;
-        delete raytracedRenderer;
-        delete pathtracedRenderer;
+        standardRenderer->cleanup();
+        pathtracedRenderer->cleanup();
+        // Cleanup pipelines;
+        standardPipeline->cleanup();
+        pathtracedPipeline->cleanup();
+        postPipeline->cleanup();
+        // Cleanup descriptor buffers
+        for (auto& buffer : cameraDescBuffers)
+            ResourceAllocator::destroyBuffer(buffer);
+        for (auto& texture : rtDescTextures)
+            delete texture;
         // Cleanup descriptor sets.
         delete globalDescSet;
+        delete rtDescSet;
+        delete postDescSet;
         // Cleanup swapchain.
         swapchain.destroy(EngineContext::getDevice());
     }
@@ -149,14 +194,100 @@ namespace core {
     //                                    Descriptor Sets                                    //
     //***************************************************************************************//
 
+    struct CameraDescriptorBuffer {
+        glm::mat4 viewProj;    // view * projection
+        glm::mat4 viewInverse; // inverse view matrix
+        glm::mat4 projInverse; // inverse projection matrix
+        glm::vec3 position;    // camera's world position
+    };
+
     void EngineRenderer::createDescriptorSets() {
         globalDescSet = new DescriptorSet();
         // Bind camera descriptor.
         globalDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
         // Bind texture array descriptor.
-        globalDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, unknown, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        globalDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(scene->getTextures().size()), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
         // Create descriptor set.
         globalDescSet->create(EngineContext::getDevice());
+
+        rtDescSet = new DescriptorSet();
+        // Bind top-level acceleration structure descriptor.
+        rtDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        // Bind render pass output image descriptor.
+        rtDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        // Bind object descriptions buffer descriptor.
+        rtDescSet->addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        // Create descriptor set.
+        rtDescSet->create(EngineContext::getDevice());
+
+        postDescSet = new DescriptorSet();
+        // Bind render pass input image descriptor.
+        postDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+        // Create descriptor set.
+        postDescSet->create(EngineContext::getDevice());
+    }
+
+    void EngineRenderer::initDescriptorSets() {
+        // Create camera descriptor buffer.
+        CameraDescriptorBuffer cameraUBO{};
+        cameraUBO.viewProj = scene->getMainCamera().getProjectionMatrix() * scene->getMainCamera().getViewMatrix();
+        cameraUBO.viewInverse = scene->getMainCamera().getViewInverseMatrix();
+        cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
+        // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
+
+        // Fill DescriptorSets and create out images for ray-tracing render pass.
+        cameraDescBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            DescriptorSet::setCurrentFrame(i);
+    
+            // Upload TLAS uniform.
+            VkWriteDescriptorSetAccelerationStructureKHR tlasDescInfo{};
+            tlasDescInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+            tlasDescInfo.accelerationStructureCount = 1;
+            tlasDescInfo.pAccelerationStructures = &scene->getTLAS().handle;
+            rtDescSet->writeAccelerationStructureKHR(0, tlasDescInfo);
+    
+            // Upload ray-tracing render pass output image uniform.
+            Texture* outTexture = new Texture(swapchain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+            EngineContext::transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            rtDescTextures.push_back(outTexture);
+    
+            VkDescriptorImageInfo rtImageDescInfo{};
+            rtImageDescInfo.sampler = {};
+            rtImageDescInfo.imageView = rtDescTextures[i]->getImageView();
+            rtImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            rtDescSet->writeImage(1, rtImageDescInfo);
+            
+            VkDescriptorImageInfo postImageDescInfo{};
+            postImageDescInfo.sampler = rtDescTextures[i]->getSampler();
+            postImageDescInfo.imageView = rtDescTextures[i]->getImageView();
+            postImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            postDescSet->writeImage(0, postImageDescInfo);
+    
+            // Upload objects description buffer.
+            VkDescriptorBufferInfo objDescInfo{};
+            objDescInfo.buffer = scene->getObjDescriptions().buffer;
+            objDescInfo.offset = 0;
+            objDescInfo.range = VK_WHOLE_SIZE;
+            rtDescSet->writeBuffer(2, objDescInfo);
+
+            // Upload camera matrices uniform.
+            ResourceAllocator::createBuffer(sizeof(CameraDescriptorBuffer), cameraDescBuffers[i], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+            ResourceAllocator::mapDataToBuffer(cameraDescBuffers[i], sizeof(CameraDescriptorBuffer), &cameraUBO);
+    
+            VkDescriptorBufferInfo camDescInfo{};
+            camDescInfo.buffer = cameraDescBuffers[i].buffer;
+            camDescInfo.offset = 0;
+            camDescInfo.range = sizeof(CameraDescriptorBuffer);
+            globalDescSet->writeBuffer(0, camDescInfo);
+        }
+        DescriptorSet::setCurrentFrame(0);
+        rtDescSet->update();
+        postDescSet->update();
+        globalDescSet->update();
+
+        // Upload Texture array descriptor.
+        updateTextureArrayDescriptor();
     }
 
     void EngineRenderer::updateDescriptorSets() {
@@ -165,31 +296,21 @@ namespace core {
     }
 
     void EngineRenderer::updateCameraDescriptor() {
-        struct CameraUniformBufferObject {
-            glm::mat4 viewProj;    // view * projection
-            glm::mat4 viewInverse; // inverse view matrix
-            glm::mat4 projInverse; // inverse projection matrix
-            glm::vec3 position; // camera's world position
-        };
-
-        CameraUniformBufferObject cameraUBO{};
+        // Create camera descriptor buffer.
+        CameraDescriptorBuffer cameraUBO{};
         cameraUBO.viewProj = scene->getMainCamera().getProjectionMatrix() * scene->getMainCamera().getViewMatrix();
         cameraUBO.viewInverse = scene->getMainCamera().getViewInverseMatrix();
         cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
         // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
 
-        // Create this frame's descriptor buffer if not yet created.
-        if (!cameraDescBuffers[currentSwapchainIndex].isCreated()) {
-            ResourceAllocator::createBuffer(sizeof(CameraUniformBufferObject), cameraDescBuffers[currentSwapchainIndex], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        }
-        // Map camera uniform buffer data to this frame's descriptor buffer.
-        ResourceAllocator::mapDataToBuffer(cameraDescBuffers[currentSwapchainIndex], sizeof(CameraUniformBufferObject), &cameraUBO);
+        // Map new camera descriptor buffer data to current frame's camera descriptor buffer.
+        ResourceAllocator::mapDataToBuffer(cameraDescBuffers[currentSwapchainIndex], sizeof(CameraDescriptorBuffer), &cameraUBO);
 
-        // Write camera uniform buffer to current frame's descriptor set.
+        // Write camera descriptor buffer to current frame's global descriptor set.
         VkDescriptorBufferInfo camDescInfo{};
         camDescInfo.buffer = cameraDescBuffers[currentSwapchainIndex].buffer;
         camDescInfo.offset = 0;
-        camDescInfo.range = sizeof(CameraUniformBufferObject);
+        camDescInfo.range = sizeof(CameraDescriptorBuffer);
         globalDescSet->writeBuffer(0, camDescInfo);
     }
 
@@ -197,6 +318,23 @@ namespace core {
         // TODO - check if scene has added or removed any textures.
         // TODO - if so, write updated texture array to descriptor set.
         // TODO - if not, do nothing.
+
+        VkDescriptorImageInfo* globalTextureDescInfos = new VkDescriptorImageInfo[scene->getTextures().size() * MAX_FRAMES_IN_FLIGHT];
+        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            DescriptorSet::setCurrentFrame(i);
+
+            // Upload texture samplers.
+            for (uint32_t texIndex = 0; texIndex < scene->getTextures().size(); texIndex++) {
+                size_t texDescIndex = texIndex + (scene->getTextures().size() * i);
+                globalTextureDescInfos[texDescIndex].sampler = scene->getTextures()[texIndex]->getSampler();
+                globalTextureDescInfos[texDescIndex].imageView = scene->getTextures()[texIndex]->getImageView();
+                globalTextureDescInfos[texDescIndex].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                globalDescSet->writeImage(1, globalTextureDescInfos[texDescIndex], texIndex);
+            }
+        }
+        DescriptorSet::setCurrentFrame(0);
+        globalDescSet->update();
+        delete[] globalTextureDescInfos;
     }
 
     //***************************************************************************************//
@@ -204,15 +342,29 @@ namespace core {
     //***************************************************************************************//
 
     void EngineRenderer::createRenderers() {
-        // TODO
+        standardRenderer = new StandardRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain());
+        pathtracedRenderer = new PathTracedRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain());
     }
 
+    // TODO - move pipelines to Renderer classes.
     void EngineRenderer::createPipelines() {
-        // TODO
+        standardPipeline = new StandardPipeline(EngineContext::getDevice(), "shader", std::vector<DescriptorSet*>{ globalDescSet }, static_cast<StandardRenderer*>(standardRenderer)->getRenderPass(), EngineRenderer::getSwapchain().extent);
+        pathtracedPipeline = new RayTracingPipeline(EngineContext::getDevice(), std::vector<DescriptorSet*>{ rtDescSet, globalDescSet });
+        postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{ postDescSet }, static_cast<PathTracedRenderer*>(pathtracedRenderer)->getRenderPass(), EngineRenderer::getSwapchain().extent);
     }
 
-    void EngineRenderer::render() {
+    void EngineRenderer::render(const bool raytrace) {
+        // Update all descriptors.
         updateDescriptorSets();
-        // TODO - call appropriate renderer's render function.
+
+        // Select renderer and render scene.
+        if (raytrace) {
+            static_cast<PathTracedRenderer*>(pathtracedRenderer)->render(currentSwapchainIndex, (Pipeline&)*pathtracedPipeline, (Pipeline&)*postPipeline, *scene);
+        } else {
+            static_cast<StandardRenderer*>(standardRenderer)->render(currentSwapchainIndex, (Pipeline&)*standardPipeline, *scene);
+        }
+
+        // Set next swapchain frame index.
+        currentSwapchainIndex = (currentSwapchainIndex + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 }

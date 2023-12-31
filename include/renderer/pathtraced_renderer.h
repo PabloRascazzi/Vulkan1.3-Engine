@@ -1,4 +1,5 @@
 #pragma once
+#include <engine_renderer.h>
 #include <renderer/renderer.h>
 #include <pipeline/pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
@@ -11,17 +12,18 @@
 
 namespace core {
 
-	class PathTracedRenderer : Renderer {
+	class PathTracedRenderer : public Renderer {
 	public:
-		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue);
+		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain);
 		~PathTracedRenderer();
 
 		virtual void cleanup();
-		virtual void render(Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene);
+		virtual void render(const uint32_t currentFrame, Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene);
 
 		VkRenderPass& getRenderPass() { return renderPass; }
 
 	private:
+		Swapchain& swapChain;
 		VkRenderPass renderPass;
 		std::vector<VkFramebuffer> swapChainFramebuffers;
 
