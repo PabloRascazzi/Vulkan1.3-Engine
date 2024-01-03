@@ -40,9 +40,9 @@ layout(location = 0) rayPayloadInEXT HitPayload prd;
 layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; }; // Reference to the array of vertices.
 layout(buffer_reference, scalar) buffer Indices {ivec3 i[]; }; // Reference to the array of triangle indices.
 layout(buffer_reference, scalar) buffer Materials { Material m; };
-layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 1, set = 1) uniform sampler2D textures[];
-layout(binding = 2, set = 0, scalar) buffer ObjDesc_ { ObjDesc i[]; } objDesc; 
+layout(binding = 0, set = 1) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 0) uniform sampler2D textures[];
+layout(binding = 2, set = 1, scalar) buffer ObjDesc_ { ObjDesc i[]; } objDesc; 
 
 void main() {
     // Object data.

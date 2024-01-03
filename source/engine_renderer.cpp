@@ -16,31 +16,22 @@ namespace core {
     // Current scene to render.
     Scene* EngineRenderer::scene;
 
-    // Descriptor Sets.
+    // Global Descriptor Sets.
     DescriptorSet* EngineRenderer::globalDescSet;
-    DescriptorSet* EngineRenderer::rtDescSet;
-    DescriptorSet* EngineRenderer::postDescSet;
 
-    // Descriptor buffers.
+    // Global Descriptor buffers.
     std::vector<Buffer> EngineRenderer::cameraDescBuffers;
-    std::vector<Texture*> EngineRenderer::rtDescTextures;
 
     // Instances for all the renderers.
     Renderer* EngineRenderer::standardRenderer;
     Renderer* EngineRenderer::raytracedRenderer;
     Renderer* EngineRenderer::pathtracedRenderer;
 
-    // Instances for all the pipelines.
-    Pipeline* EngineRenderer::standardPipeline;
-    Pipeline* EngineRenderer::pathtracedPipeline;
-    Pipeline* EngineRenderer::postPipeline;
-
 	void EngineRenderer::setup(Scene* scene) {
         EngineRenderer::scene = scene;
 		createSwapChain();
         createDescriptorSets();
         createRenderers();
-        createPipelines();
         initDescriptorSets();
 	}
 
@@ -48,19 +39,11 @@ namespace core {
         // Cleanup renderers.
         standardRenderer->cleanup();
         pathtracedRenderer->cleanup();
-        // Cleanup pipelines;
-        standardPipeline->cleanup();
-        pathtracedPipeline->cleanup();
-        postPipeline->cleanup();
         // Cleanup descriptor buffers
         for (auto& buffer : cameraDescBuffers)
             ResourceAllocator::destroyBuffer(buffer);
-        for (auto& texture : rtDescTextures)
-            delete texture;
         // Cleanup descriptor sets.
         delete globalDescSet;
-        delete rtDescSet;
-        delete postDescSet;
         // Cleanup swapchain.
         swapchain.destroy(EngineContext::getDevice());
     }
@@ -187,7 +170,7 @@ namespace core {
     }
 
     void EngineRenderer::updateSwapchain() {
-        // TODO
+        // TODO - recreate swapchain
     }
 
     //***************************************************************************************//
@@ -209,22 +192,6 @@ namespace core {
         globalDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(scene->getTextures().size()), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
         // Create descriptor set.
         globalDescSet->create(EngineContext::getDevice());
-
-        rtDescSet = new DescriptorSet();
-        // Bind top-level acceleration structure descriptor.
-        rtDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
-        // Bind render pass output image descriptor.
-        rtDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-        // Bind object descriptions buffer descriptor.
-        rtDescSet->addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
-        // Create descriptor set.
-        rtDescSet->create(EngineContext::getDevice());
-
-        postDescSet = new DescriptorSet();
-        // Bind render pass input image descriptor.
-        postDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-        // Create descriptor set.
-        postDescSet->create(EngineContext::getDevice());
     }
 
     void EngineRenderer::initDescriptorSets() {
@@ -235,41 +202,11 @@ namespace core {
         cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
         // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
 
-        // Fill DescriptorSets and create out images for ray-tracing render pass.
+        // Fill global descriptor sets.
         cameraDescBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        VkDescriptorImageInfo* globalTextureDescInfos = new VkDescriptorImageInfo[scene->getTextures().size() * MAX_FRAMES_IN_FLIGHT];
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             DescriptorSet::setCurrentFrame(i);
-    
-            // Upload TLAS uniform.
-            VkWriteDescriptorSetAccelerationStructureKHR tlasDescInfo{};
-            tlasDescInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-            tlasDescInfo.accelerationStructureCount = 1;
-            tlasDescInfo.pAccelerationStructures = &scene->getTLAS().handle;
-            rtDescSet->writeAccelerationStructureKHR(0, tlasDescInfo);
-    
-            // Upload ray-tracing render pass output image uniform.
-            Texture* outTexture = new Texture(swapchain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-            EngineContext::transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-            rtDescTextures.push_back(outTexture);
-    
-            VkDescriptorImageInfo rtImageDescInfo{};
-            rtImageDescInfo.sampler = {};
-            rtImageDescInfo.imageView = rtDescTextures[i]->getImageView();
-            rtImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-            rtDescSet->writeImage(1, rtImageDescInfo);
-            
-            VkDescriptorImageInfo postImageDescInfo{};
-            postImageDescInfo.sampler = rtDescTextures[i]->getSampler();
-            postImageDescInfo.imageView = rtDescTextures[i]->getImageView();
-            postImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-            postDescSet->writeImage(0, postImageDescInfo);
-    
-            // Upload objects description buffer.
-            VkDescriptorBufferInfo objDescInfo{};
-            objDescInfo.buffer = scene->getObjDescriptions().buffer;
-            objDescInfo.offset = 0;
-            objDescInfo.range = VK_WHOLE_SIZE;
-            rtDescSet->writeBuffer(2, objDescInfo);
 
             // Upload camera matrices uniform.
             ResourceAllocator::createBuffer(sizeof(CameraDescriptorBuffer), cameraDescBuffers[i], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
@@ -280,14 +217,19 @@ namespace core {
             camDescInfo.offset = 0;
             camDescInfo.range = sizeof(CameraDescriptorBuffer);
             globalDescSet->writeBuffer(0, camDescInfo);
+
+            // Upload texture samplers.
+            for (uint32_t texIndex = 0; texIndex < scene->getTextures().size(); texIndex++) {
+                size_t texDescIndex = texIndex + (scene->getTextures().size() * i);
+                globalTextureDescInfos[texDescIndex].sampler = scene->getTextures()[texIndex]->getSampler();
+                globalTextureDescInfos[texDescIndex].imageView = scene->getTextures()[texIndex]->getImageView();
+                globalTextureDescInfos[texDescIndex].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                globalDescSet->writeImage(1, globalTextureDescInfos[texDescIndex], texIndex);
+            }
         }
         DescriptorSet::setCurrentFrame(0);
-        rtDescSet->update();
-        postDescSet->update();
         globalDescSet->update();
-
-        // Upload Texture array descriptor.
-        updateTextureArrayDescriptor();
+        delete[] globalTextureDescInfos;
     }
 
     void EngineRenderer::updateDescriptorSets() {
@@ -318,23 +260,6 @@ namespace core {
         // TODO - check if scene has added or removed any textures.
         // TODO - if so, write updated texture array to descriptor set.
         // TODO - if not, do nothing.
-
-        VkDescriptorImageInfo* globalTextureDescInfos = new VkDescriptorImageInfo[scene->getTextures().size() * MAX_FRAMES_IN_FLIGHT];
-        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            DescriptorSet::setCurrentFrame(i);
-
-            // Upload texture samplers.
-            for (uint32_t texIndex = 0; texIndex < scene->getTextures().size(); texIndex++) {
-                size_t texDescIndex = texIndex + (scene->getTextures().size() * i);
-                globalTextureDescInfos[texDescIndex].sampler = scene->getTextures()[texIndex]->getSampler();
-                globalTextureDescInfos[texDescIndex].imageView = scene->getTextures()[texIndex]->getImageView();
-                globalTextureDescInfos[texDescIndex].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                globalDescSet->writeImage(1, globalTextureDescInfos[texDescIndex], texIndex);
-            }
-        }
-        DescriptorSet::setCurrentFrame(0);
-        globalDescSet->update();
-        delete[] globalTextureDescInfos;
     }
 
     //***************************************************************************************//
@@ -342,15 +267,8 @@ namespace core {
     //***************************************************************************************//
 
     void EngineRenderer::createRenderers() {
-        standardRenderer = new StandardRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain());
-        pathtracedRenderer = new PathTracedRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain());
-    }
-
-    // TODO - move pipelines to Renderer classes.
-    void EngineRenderer::createPipelines() {
-        standardPipeline = new StandardPipeline(EngineContext::getDevice(), "shader", std::vector<DescriptorSet*>{ globalDescSet }, static_cast<StandardRenderer*>(standardRenderer)->getRenderPass(), EngineRenderer::getSwapchain().extent);
-        pathtracedPipeline = new RayTracingPipeline(EngineContext::getDevice(), std::vector<DescriptorSet*>{ rtDescSet, globalDescSet });
-        postPipeline = new PostPipeline(EngineContext::getDevice(), "postShader", std::vector<DescriptorSet*>{ postDescSet }, static_cast<PathTracedRenderer*>(pathtracedRenderer)->getRenderPass(), EngineRenderer::getSwapchain().extent);
+        standardRenderer = new StandardRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ globalDescSet });
+        pathtracedRenderer = new PathTracedRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ globalDescSet });
     }
 
     void EngineRenderer::render(const bool raytrace) {
@@ -359,9 +277,9 @@ namespace core {
 
         // Select renderer and render scene.
         if (raytrace) {
-            static_cast<PathTracedRenderer*>(pathtracedRenderer)->render(currentSwapchainIndex, (Pipeline&)*pathtracedPipeline, (Pipeline&)*postPipeline, *scene);
+            static_cast<PathTracedRenderer*>(pathtracedRenderer)->render(currentSwapchainIndex, *scene);
         } else {
-            static_cast<StandardRenderer*>(standardRenderer)->render(currentSwapchainIndex, (Pipeline&)*standardPipeline, *scene);
+            static_cast<StandardRenderer*>(standardRenderer)->render(currentSwapchainIndex, *scene);
         }
 
         // Set next swapchain frame index.

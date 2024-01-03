@@ -3,11 +3,14 @@
 
 namespace core {
 
-    PathTracedRenderer::PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain) : Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain) {
+    PathTracedRenderer::PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets) : Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain) {
         createRenderPass();
         createFramebuffers();
         createCommandBuffers();
         createSyncObjects();
+        createDescriptorSets();
+        createPipeline(device, globalDescSets);
+        this->firstRender = true;
     }
 
     PathTracedRenderer::~PathTracedRenderer() {
@@ -15,6 +18,16 @@ namespace core {
     }
 
     void PathTracedRenderer::cleanup() {
+        // Cleanup pipelines.
+        rtPipeline->cleanup();
+        postPipeline->cleanup();
+        // Cleanup descriptor buffers.
+        for (auto& texture : rtDescTextures)
+            delete texture;
+        // Cleanup descriptor sets.
+        delete rtDescSet;
+        delete postDescSet;
+        // Cleanup sync objects.
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
             vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -109,26 +122,97 @@ namespace core {
         }
     }
 
-    void PathTracedRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene) {
+    void PathTracedRenderer::createDescriptorSets() {
+        rtDescSet = new DescriptorSet();
+        // Bind top-level acceleration structure descriptor.
+        rtDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        // Bind render pass output image descriptor.
+        rtDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        // Bind object descriptions buffer descriptor.
+        rtDescSet->addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        // Create descriptor set.
+        rtDescSet->create(EngineContext::getDevice());
+
+        postDescSet = new DescriptorSet();
+        // Bind render pass input image descriptor.
+        postDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+        // Create descriptor set.
+        postDescSet->create(EngineContext::getDevice());
+    }
+
+    void PathTracedRenderer::initDescriptorSets(Scene& scene) {
+        // Fill DescriptorSets and create out images for ray-tracing render pass.
+        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            DescriptorSet::setCurrentFrame(i);
+
+            // Upload TLAS uniform.
+            VkWriteDescriptorSetAccelerationStructureKHR tlasDescInfo{};
+            tlasDescInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+            tlasDescInfo.accelerationStructureCount = 1;
+            tlasDescInfo.pAccelerationStructures = &scene.getTLAS().handle;
+            rtDescSet->writeAccelerationStructureKHR(0, tlasDescInfo);
+
+            // Upload ray-tracing render pass output image uniform.
+            Texture* outTexture = new Texture(swapChain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+            EngineContext::transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            rtDescTextures.push_back(outTexture);
+
+            VkDescriptorImageInfo rtImageDescInfo{};
+            rtImageDescInfo.sampler = {};
+            rtImageDescInfo.imageView = rtDescTextures[i]->getImageView();
+            rtImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            rtDescSet->writeImage(1, rtImageDescInfo);
+
+            VkDescriptorImageInfo postImageDescInfo{};
+            postImageDescInfo.sampler = rtDescTextures[i]->getSampler();
+            postImageDescInfo.imageView = rtDescTextures[i]->getImageView();
+            postImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            postDescSet->writeImage(0, postImageDescInfo);
+
+            // Upload objects description buffer.
+            VkDescriptorBufferInfo objDescInfo{};
+            objDescInfo.buffer = scene.getObjDescriptions().buffer;
+            objDescInfo.offset = 0;
+            objDescInfo.range = VK_WHOLE_SIZE;
+            rtDescSet->writeBuffer(2, objDescInfo);
+        }
+        DescriptorSet::setCurrentFrame(0);
+        rtDescSet->update();
+        postDescSet->update();
+    }
+
+    void PathTracedRenderer::updateDescriptorSets() {
+        // TODO
+    }
+
+    void PathTracedRenderer::createPipeline(VkDevice device, std::vector<DescriptorSet*> globalDescSets) {
+        std::vector<DescriptorSet*> rtDescSets(globalDescSets);
+        rtDescSets.insert(rtDescSets.end(), { this->rtDescSet });
+        std::vector<DescriptorSet*> postDescSets{ this->postDescSet };
+        rtPipeline = new RayTracingPipeline(device, rtDescSets);
+        postPipeline = new PostPipeline(device, "postShader", postDescSets, this->renderPass, this->swapChain.extent);
+    }
+
+    void PathTracedRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Scene& scene) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
         VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
         // Bind pipeline.
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.getHandle());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->rtPipeline->getHandle());
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets = rtPipeline.getDescriptorSetHandles();
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+        std::vector<VkDescriptorSet> descSets = this->rtPipeline->getDescriptorSetHandles();
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->rtPipeline->getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
 
         // Upload push constants.
         RayTracingPushConstant constant;
         constant.clearColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-        vkCmdPushConstants(commandBuffer, rtPipeline.getLayout(), constant.getShaderStageFlags(), 0, constant.getSize(), &constant);
+        vkCmdPushConstants(commandBuffer, this->rtPipeline->getLayout(), constant.getShaderStageFlags(), 0, constant.getSize(), &constant);
 
         // Draw ray-traced.
-        SBTWrapper sbt = ((RayTracingPipeline*)&rtPipeline)->getSBT();
+        SBTWrapper sbt = static_cast<RayTracingPipeline*>(this->rtPipeline)->getSBT();
         uint32_t width = swapChain.extent.width;
         uint32_t height = swapChain.extent.height;
         vkCmdTraceRaysKHR(commandBuffer, &sbt.rgenRegion, &sbt.missRegion, &sbt.hitRegion, &sbt.callRegion, width, height, 1);
@@ -147,7 +231,7 @@ namespace core {
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         // Bind pipeline
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline.getHandle());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->postPipeline->getHandle());
 
         // Set Viewport and Scissor
         VkViewport viewport{};
@@ -165,8 +249,8 @@ namespace core {
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> postDescSets = postPipeline.getDescriptorSetHandles();
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline.getLayout(), 0, static_cast<uint32_t>(postDescSets.size()), postDescSets.data(), 0, nullptr);
+        std::vector<VkDescriptorSet> postDescSets = this->postPipeline->getDescriptorSetHandles();
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->postPipeline->getLayout(), 0, static_cast<uint32_t>(postDescSets.size()), postDescSets.data(), 0, nullptr);
 
         // Draw
         vkCmdDraw(commandBuffer, 4, 1, 0, 0);
@@ -178,7 +262,16 @@ namespace core {
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
     }
 
-    void PathTracedRenderer::render(const uint32_t currentFrame, Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene) {
+    void PathTracedRenderer::render(const uint32_t currentFrame, Scene& scene) {
+        // Initialize descriptor sets on first render.
+        if (firstRender) {
+            initDescriptorSets(scene);
+            firstRender = false;
+        }
+
+        // Update descriptor sets.
+        updateDescriptorSets();
+
         // Wait until previous frame has finished.
         VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
         VK_CHECK(vkResetFences(device, 1, (VkFence*)&inFlightFences[currentFrame]));
@@ -194,7 +287,7 @@ namespace core {
         VK_CHECK(vkResetCommandBuffer(commandBuffers[currentFrame], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
 
         // Record command buffer.
-        recordCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, rtPipeline, postPipeline, scene);
+        recordCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, scene);
 
         // Submit command buffer.
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };

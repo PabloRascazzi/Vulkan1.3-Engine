@@ -12,11 +12,11 @@ namespace core {
 
 	class StandardRenderer : public Renderer {
 	public:
-		StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain);
+		StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets);
 		~StandardRenderer();
 
 		virtual void cleanup();
-		virtual void render(const uint32_t currentFrame, Pipeline& pipeline, Scene& scene);
+		virtual void render(const uint32_t currentFrame, Scene& scene);
 
 		VkRenderPass& getRenderPass() { return renderPass; }
 
@@ -35,13 +35,20 @@ namespace core {
 		std::vector<VkSemaphore> renderFinishedSemaphores;
 		std::vector<VkFence> inFlightFences;
 
+		Pipeline* pipeline;
+
 		void createDepthBuffer();
 		void createRenderPass();
 		void createFramebuffers();
 		void createCommandBuffers();
 		void createSyncObjects();
 
-		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Scene& scene);
+		void createPipeline(VkDevice device, std::vector<DescriptorSet*> globalDescSets);
+		void createDescriptorSets();
+		void initDescriptorSets();
+		void updateDescriptorSets();
+
+		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Scene& scene);
 
 	};
 }

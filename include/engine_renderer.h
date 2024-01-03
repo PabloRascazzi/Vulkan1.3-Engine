@@ -46,27 +46,18 @@ namespace core {
 		
 		// Descriptor Sets.
 		static DescriptorSet* globalDescSet;
-		static DescriptorSet* rtDescSet; // TODO - move to PathTracedRenderer class.
-		static DescriptorSet* postDescSet; // TODO  - move to PathTracedRenderer class.
 
 		// Descriptor buffers.
 		static std::vector<Buffer> cameraDescBuffers;
-		static std::vector<Texture*> rtDescTextures; // TODO  - move to PathTracedRenderer class.
 
 		// Instances for all the renderers.
 		static Renderer* standardRenderer;
 		static Renderer* raytracedRenderer;
 		static Renderer* pathtracedRenderer;
 
-		// Instances for all the pipelines.
-		static Pipeline* standardPipeline; // TODO - move pipelines to Renderer classes.
-		static Pipeline* pathtracedPipeline; // TODO - move pipelines to Renderer classes.
-		static Pipeline* postPipeline; // TODO - move pipelines to Renderer classes.
-
 		static void createSwapChain();
-		static void createDescriptorSets();
 		static void createRenderers();
-		static void createPipelines(); // TODO - move pipelines to Renderer classes.
+		static void createDescriptorSets();
 		static void initDescriptorSets();
 
 		// Recreates the swapchain.

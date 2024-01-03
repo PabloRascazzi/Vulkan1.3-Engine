@@ -5,12 +5,15 @@
 
 namespace core {
 
-    StandardRenderer::StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain) : Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain) {
+    StandardRenderer::StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets) : Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain) {
         createDepthBuffer();
         createRenderPass();
         createFramebuffers();
         createCommandBuffers();
         createSyncObjects();
+        createDescriptorSets();
+        createPipeline(device, globalDescSets);
+        initDescriptorSets();
     }
 
     StandardRenderer::~StandardRenderer() {
@@ -18,6 +21,7 @@ namespace core {
     }
 
     void StandardRenderer::cleanup() {
+        pipeline->cleanup();
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
             vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -138,7 +142,23 @@ namespace core {
         }
     }
 
-    void StandardRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& pipeline, Scene& scene) {
+    void StandardRenderer::createPipeline(VkDevice device, std::vector<DescriptorSet*> globalDescSets) {
+        pipeline = new StandardPipeline(device, "shader", globalDescSets, renderPass, swapChain.extent);
+    }
+
+    void StandardRenderer::createDescriptorSets() {
+        // TODO
+    }
+
+    void StandardRenderer::initDescriptorSets() {
+        // TODO
+    }
+
+    void StandardRenderer::updateDescriptorSets() {
+        // TODO
+    }
+
+    void StandardRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Scene& scene) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -162,7 +182,7 @@ namespace core {
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         // Bind pipeline
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getHandle());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline->getHandle());
 
         // Set Viewport and Scissor
         VkViewport viewport{};
@@ -180,9 +200,9 @@ namespace core {
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets = pipeline.getDescriptorSetHandles();
+        std::vector<VkDescriptorSet> descSets = this->pipeline->getDescriptorSetHandles();
         if (descSets.size() > 0) {
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline->getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
         }
 
         for (const auto& object : scene.getObjects()) {
@@ -198,7 +218,7 @@ namespace core {
                 constant.view = scene.getMainCamera().getViewMatrix();
                 constant.proj = scene.getMainCamera().getProjectionMatrix();
                 constant.materialAddress = object.materials.at(i)->getBuffer().getDeviceAddress();
-                vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
+                vkCmdPushConstants(commandBuffer, this->pipeline->getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
 
                 // Bind index buffer
                 vkCmdBindIndexBuffer(commandBuffer, object.mesh->getSubmesh(i).getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -214,7 +234,10 @@ namespace core {
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
     }
 
-    void StandardRenderer::render(const uint32_t currentFrame, Pipeline& pipeline, Scene& scene) {
+    void StandardRenderer::render(const uint32_t currentFrame, Scene& scene) {
+        // Update descriptor sets.
+        updateDescriptorSets();
+
         // Wait until previous frame has finished.
         VK_CHECK(vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
         VK_CHECK(vkResetFences(device, 1, &inFlightFences[currentFrame]));
@@ -230,7 +253,7 @@ namespace core {
         VK_CHECK(vkResetCommandBuffer(commandBuffers[currentFrame], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
 
         // Record command buffer.
-        recordCommandBuffer(commandBuffers[currentFrame], imageIndex, pipeline, scene);
+        recordCommandBuffer(commandBuffers[currentFrame], imageIndex, scene);
 
         // Submit command buffer.
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };

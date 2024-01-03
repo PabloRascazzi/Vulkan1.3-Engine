@@ -14,11 +14,11 @@ namespace core {
 
 	class PathTracedRenderer : public Renderer {
 	public:
-		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain);
+		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets);
 		~PathTracedRenderer();
 
 		virtual void cleanup();
-		virtual void render(const uint32_t currentFrame, Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene);
+		virtual void render(const uint32_t currentFrame, Scene& scene);
 
 		VkRenderPass& getRenderPass() { return renderPass; }
 
@@ -32,12 +32,28 @@ namespace core {
 		std::vector<VkSemaphore> renderFinishedSemaphores;
 		std::vector<VkFence> inFlightFences;
 
+		// Pipelines.
+		Pipeline* rtPipeline;
+		Pipeline* postPipeline;
+		// Descriptor buffers.
+		std::vector<Texture*> rtDescTextures;
+		// Descriptor Sets.
+		DescriptorSet* rtDescSet;
+		DescriptorSet* postDescSet;
+
+		bool firstRender;
+
 		void createRenderPass();
 		void createFramebuffers();
 		void createCommandBuffers();
 		void createSyncObjects();
 
-		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Pipeline& rtPipeline, Pipeline& postPipeline, Scene& scene);
+		void createPipeline(VkDevice device, std::vector<DescriptorSet*> globalDescSets);
+		void createDescriptorSets();
+		void initDescriptorSets(Scene& scene);
+		void updateDescriptorSets();
+
+		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Scene& scene);
 
 	};
 }
