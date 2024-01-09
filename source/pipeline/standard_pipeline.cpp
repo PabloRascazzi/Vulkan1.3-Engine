@@ -4,14 +4,14 @@
 namespace core {
 
 	StandardPipeline::StandardPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent) : 
-		StandardPipeline(device, filename, std::vector<DescriptorSet*>(), renderPass, swapChainExtent) {}
-	StandardPipeline::StandardPipeline(VkDevice device, std::string filename, std::vector<DescriptorSet*> descriptorSets, VkRenderPass renderPass, VkExtent2D swapChainExtent) : Pipeline(device, descriptorSets) {
+		StandardPipeline(device, filename, std::vector<VkDescriptorSetLayout>(), renderPass, swapChainExtent) {}
+	StandardPipeline::StandardPipeline(VkDevice device, std::string filename, std::vector<VkDescriptorSetLayout> descSetLayouts, VkRenderPass renderPass, VkExtent2D swapChainExtent) : Pipeline(device) {
 		this->type = PipelineType::PIPELINE_TYPE_RASTERIZATION;
 		this->filename = filename;
 		this->renderPass = renderPass;
 		this->swapChainExtent = swapChainExtent;
 
-		createPipelineLayout();
+		createPipelineLayout(descSetLayouts);
 		createPipeline();
 	}
 
@@ -24,16 +24,12 @@ namespace core {
 		device.destroyPipelineLayout(layout);
 	}
 
-	void StandardPipeline::createPipelineLayout() {
+	void StandardPipeline::createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts) {
 		// Pipeline push constants.
 		VkPushConstantRange pushConstant;
 		pushConstant.offset = 0;
 		pushConstant.size = sizeof(StandardPushConstant);
 		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-		// Pipeline get all descriptor set layouts.
-		std::vector<VkDescriptorSetLayout> layouts;
-		for (auto set : descriptorSets) layouts.push_back(set->getSetLayout());
 
 		// Pipeline layout creation.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};

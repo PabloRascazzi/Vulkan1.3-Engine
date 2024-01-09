@@ -250,6 +250,8 @@ namespace core {
         VkPhysicalDeviceDescriptorIndexingFeatures descIndexFeature{};
         descIndexFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
         descIndexFeature.runtimeDescriptorArray = VK_TRUE;
+        descIndexFeature.descriptorBindingPartiallyBound = VK_TRUE;
+        descIndexFeature.descriptorBindingVariableDescriptorCount = VK_TRUE;
         descIndexFeature.pNext = &shader16bitFeature;
 
         VkPhysicalDeviceTimelineSemaphoreFeatures timeSemFeature{};

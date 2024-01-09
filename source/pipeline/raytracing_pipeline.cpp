@@ -3,11 +3,11 @@
 
 namespace core {
 
-	RayTracingPipeline::RayTracingPipeline(VkDevice device) : RayTracingPipeline(device, std::vector<DescriptorSet*>()) {}
-	RayTracingPipeline::RayTracingPipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets) : Pipeline(device, descriptorSets) {
+	RayTracingPipeline::RayTracingPipeline(VkDevice device) : RayTracingPipeline(device, std::vector<VkDescriptorSetLayout>()) {}
+	RayTracingPipeline::RayTracingPipeline(VkDevice device, std::vector<VkDescriptorSetLayout> descSetLayouts) : Pipeline(device) {
 		this->type = PipelineType::PIPELINE_TYPE_RAY_TRACING;
 		
-		createPipelineLayout();
+		createPipelineLayout(descSetLayouts);
 		createPipeline();
 		createShaderBindingTable();
 	}
@@ -22,16 +22,12 @@ namespace core {
 		device.destroyPipelineLayout(layout);
 	}
 
-	void RayTracingPipeline::createPipelineLayout() {
+	void RayTracingPipeline::createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts) {
 		// Pipeline push constants.
 		VkPushConstantRange pushConstant;
 		pushConstant.offset = 0;
 		pushConstant.size = sizeof(RayTracingPushConstant);
 		pushConstant.stageFlags = RayTracingPushConstant::getShaderStageFlags();
-
-		// Pipeline get all descriptor set layouts.
-		std::vector<VkDescriptorSetLayout> layouts;
-		for (auto set : descriptorSets) layouts.push_back(set->getSetLayout());
 
 		// Pipeline layout creation.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};

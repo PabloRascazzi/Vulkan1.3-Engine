@@ -17,10 +17,12 @@ namespace core {
     Scene* EngineRenderer::scene;
 
     // Global Descriptor Sets.
-    DescriptorSet* EngineRenderer::globalDescSet;
+    DescriptorSet* EngineRenderer::cameraDescSet;
+    DescriptorSet* EngineRenderer::texturesDescSet;
 
-    // Global Descriptor buffers.
-    std::vector<Buffer> EngineRenderer::cameraDescBuffers;
+    // Global Descriptor buffer.
+    Buffer EngineRenderer::cameraDescBuffer;
+    uint32_t EngineRenderer::cameraDescBufferAlignment;
 
     // Instances for all the renderers.
     Renderer* EngineRenderer::standardRenderer;
@@ -40,10 +42,10 @@ namespace core {
         standardRenderer->cleanup();
         pathtracedRenderer->cleanup();
         // Cleanup descriptor buffers
-        for (auto& buffer : cameraDescBuffers)
-            ResourceAllocator::destroyBuffer(buffer);
+        ResourceAllocator::destroyBuffer(cameraDescBuffer);
         // Cleanup descriptor sets.
-        delete globalDescSet;
+        delete cameraDescSet;
+        delete texturesDescSet;
         // Cleanup swapchain.
         swapchain.destroy(EngineContext::getDevice());
     }
@@ -185,13 +187,21 @@ namespace core {
     };
 
     void EngineRenderer::createDescriptorSets() {
-        globalDescSet = new DescriptorSet();
+        // Allocate camera descriptor set.
+        cameraDescSet = new DescriptorSet();
         // Bind camera descriptor.
-        globalDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-        // Bind texture array descriptor.
-        globalDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(scene->getTextures().size()), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        cameraDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
         // Create descriptor set.
-        globalDescSet->create(EngineContext::getDevice());
+        cameraDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
+        cameraDescSet->setName("Camera");
+
+        // Allocate texture descriptor set.
+        texturesDescSet = new DescriptorSet();
+        // Bind texture array descriptor.
+        texturesDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 32, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
+        // Create descriptor set.
+        texturesDescSet->create(EngineContext::getDevice());
+        texturesDescSet->setName("Textures");
     }
 
     void EngineRenderer::initDescriptorSets() {
@@ -202,39 +212,39 @@ namespace core {
         cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
         // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
 
-        // Fill global descriptor sets.
-        cameraDescBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        VkDescriptorImageInfo* globalTextureDescInfos = new VkDescriptorImageInfo[scene->getTextures().size() * MAX_FRAMES_IN_FLIGHT];
+        // Allocate and map data to camera desc buffer.
+        cameraDescBufferAlignment = alignUp(EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment, sizeof(CameraDescriptorBuffer));
+        CameraDescriptorBuffer cameraUBOs[MAX_FRAMES_IN_FLIGHT]{ cameraUBO };
+        ResourceAllocator::createBuffer(cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, cameraDescBuffer, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        ResourceAllocator::mapDataToBuffer(cameraDescBuffer, cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, &cameraUBO);
+
+        // Upload camera descriptor to all descriptor sets.
+        VkDescriptorBufferInfo camDescInfos[MAX_FRAMES_IN_FLIGHT];
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            DescriptorSet::setCurrentFrame(i);
-
-            // Upload camera matrices uniform.
-            ResourceAllocator::createBuffer(sizeof(CameraDescriptorBuffer), cameraDescBuffers[i], VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-            ResourceAllocator::mapDataToBuffer(cameraDescBuffers[i], sizeof(CameraDescriptorBuffer), &cameraUBO);
-    
-            VkDescriptorBufferInfo camDescInfo{};
-            camDescInfo.buffer = cameraDescBuffers[i].buffer;
-            camDescInfo.offset = 0;
-            camDescInfo.range = sizeof(CameraDescriptorBuffer);
-            globalDescSet->writeBuffer(0, camDescInfo);
-
-            // Upload texture samplers.
-            for (uint32_t texIndex = 0; texIndex < scene->getTextures().size(); texIndex++) {
-                size_t texDescIndex = texIndex + (scene->getTextures().size() * i);
-                globalTextureDescInfos[texDescIndex].sampler = scene->getTextures()[texIndex]->getSampler();
-                globalTextureDescInfos[texDescIndex].imageView = scene->getTextures()[texIndex]->getImageView();
-                globalTextureDescInfos[texDescIndex].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                globalDescSet->writeImage(1, globalTextureDescInfos[texDescIndex], texIndex);
-            }
+            camDescInfos[i].buffer = cameraDescBuffer.buffer;
+            camDescInfos[i].offset = cameraDescBufferAlignment * i;
+            camDescInfos[i].range = sizeof(CameraDescriptorBuffer);
+            cameraDescSet->writeBuffer(i, 0, camDescInfos[i]);
         }
-        DescriptorSet::setCurrentFrame(0);
-        globalDescSet->update();
+
+        // Upload texture sampler descriptors.
+        VkDescriptorImageInfo* globalTextureDescInfos = new VkDescriptorImageInfo[scene->getTextures().size()];
+        for (uint32_t i = 0; i < scene->getTextures().size(); i++) {
+            globalTextureDescInfos[i].sampler = scene->getTextures()[i]->getSampler();
+            globalTextureDescInfos[i].imageView = scene->getTextures()[i]->getImageView();
+            globalTextureDescInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            texturesDescSet->writeImage(0, 0, globalTextureDescInfos[i], i);
+        }
+
+        // Update global desc sets.
+        cameraDescSet->update();
+        texturesDescSet->update();
         delete[] globalTextureDescInfos;
     }
 
     void EngineRenderer::updateDescriptorSets() {
         updateCameraDescriptor();
-        // TODO
+        updateTextureArrayDescriptor();
     }
 
     void EngineRenderer::updateCameraDescriptor() {
@@ -246,14 +256,7 @@ namespace core {
         // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
 
         // Map new camera descriptor buffer data to current frame's camera descriptor buffer.
-        ResourceAllocator::mapDataToBuffer(cameraDescBuffers[currentSwapchainIndex], sizeof(CameraDescriptorBuffer), &cameraUBO);
-
-        // Write camera descriptor buffer to current frame's global descriptor set.
-        VkDescriptorBufferInfo camDescInfo{};
-        camDescInfo.buffer = cameraDescBuffers[currentSwapchainIndex].buffer;
-        camDescInfo.offset = 0;
-        camDescInfo.range = sizeof(CameraDescriptorBuffer);
-        globalDescSet->writeBuffer(0, camDescInfo);
+        ResourceAllocator::mapDataToBuffer(cameraDescBuffer, sizeof(CameraDescriptorBuffer), &cameraUBO, cameraDescBufferAlignment * currentSwapchainIndex);
     }
 
     void EngineRenderer::updateTextureArrayDescriptor() {
@@ -267,8 +270,8 @@ namespace core {
     //***************************************************************************************//
 
     void EngineRenderer::createRenderers() {
-        standardRenderer = new StandardRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ globalDescSet });
-        pathtracedRenderer = new PathTracedRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ globalDescSet });
+        standardRenderer = new StandardRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ cameraDescSet, texturesDescSet });
+        pathtracedRenderer = new PathTracedRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ cameraDescSet, texturesDescSet });
     }
 
     void EngineRenderer::render(const bool raytrace) {

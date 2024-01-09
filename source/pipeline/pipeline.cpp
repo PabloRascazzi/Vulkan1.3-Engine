@@ -5,18 +5,9 @@
 
 namespace core {
 
-	Pipeline::Pipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets) {
+	Pipeline::Pipeline(VkDevice device) {
 		this->type = PipelineType::PIPELINE_TYPE_NONE;
 		this->device = device;
-		this->descriptorSets = descriptorSets;
-	}
-
-	std::vector<VkDescriptorSet> Pipeline::getDescriptorSetHandles() { 
-		std::vector<VkDescriptorSet> handles;
-		for (auto set : descriptorSets) {
-			handles.push_back(set->getHandle());
-		}
-		return handles; 
 	}
 
 	VkShaderModule Pipeline::createShaderModule(const std::string& filename) {

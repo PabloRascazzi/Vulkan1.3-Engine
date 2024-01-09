@@ -41,6 +41,7 @@ int main() {
     std::cout << "Max Recursion Depth: " << EngineContext::getPhysicalDeviceProperties().raytracingProperties.maxRayRecursionDepth << std::endl;
     std::cout << "Max Geometry Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxGeometryCount << std::endl;
     std::cout << "Max Instance Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxInstanceCount << std::endl;
+    std::cout << "Min Uniform Buffer Offset Alignment: " << EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment << std::endl;
 
     // Create Meshes.
     Mesh* anvil = FileReader::readMeshFile("anvil");

@@ -35,7 +35,10 @@ namespace core {
 		std::vector<VkSemaphore> renderFinishedSemaphores;
 		std::vector<VkFence> inFlightFences;
 
+		// Pipelines.
 		Pipeline* pipeline;
+		// Descriptor Sets.
+		std::vector<DescriptorSet*> globalDescSets;
 
 		void createDepthBuffer();
 		void createRenderPass();
@@ -43,12 +46,12 @@ namespace core {
 		void createCommandBuffers();
 		void createSyncObjects();
 
-		void createPipeline(VkDevice device, std::vector<DescriptorSet*> globalDescSets);
+		void createPipeline(VkDevice device);
 		void createDescriptorSets();
 		void initDescriptorSets();
 		void updateDescriptorSets();
 
-		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Scene& scene);
+		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene);
 
 	};
 }

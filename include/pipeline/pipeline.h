@@ -14,23 +14,20 @@ namespace core {
 
 	class Pipeline {
 	public:
-		Pipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets);
+		Pipeline(VkDevice device);
 		virtual void cleanup() = 0;
 
 		vk::Pipeline getHandle() { return pipeline; }
 		vk::PipelineLayout getLayout() { return layout; }
 		PipelineType getType() { return type; }
-		std::vector<DescriptorSet*>& getDescriptorSets() { return descriptorSets; }
-		std::vector<VkDescriptorSet> getDescriptorSetHandles();
 
 	protected:
 		vk::Device device;
 		vk::Pipeline pipeline;
 		vk::PipelineLayout layout;
 		PipelineType type;
-		std::vector<DescriptorSet*> descriptorSets;
 
-		virtual void createPipelineLayout() = 0;
+		virtual void createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts) = 0;
 		virtual void createPipeline() = 0;
 
 		VkShaderModule createShaderModule(const std::string& filename);

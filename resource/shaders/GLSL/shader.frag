@@ -17,7 +17,7 @@ struct Material {
 };
 
 layout(buffer_reference, scalar) buffer Materials { Material m; };
-layout(binding = 1, set = 0) uniform sampler2D textures[];
+layout(binding = 0, set = 1) uniform sampler2D textures[];
 layout(location = 0) in flat uint64_t materialAddress;
 layout(location = 1) in vec3 fragColor;
 layout(location = 2) in vec2 inUV;

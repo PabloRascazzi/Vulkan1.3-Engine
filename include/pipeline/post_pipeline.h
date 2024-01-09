@@ -12,7 +12,7 @@ namespace core {
 	class PostPipeline : public Pipeline {
 	public:
 		PostPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent);
-		PostPipeline(VkDevice device, std::string filename, std::vector<DescriptorSet*> descriptorSets, VkRenderPass renderPass, VkExtent2D swapChainExtent);
+		PostPipeline(VkDevice device, std::string filename, std::vector<VkDescriptorSetLayout> descSetLayouts, VkRenderPass renderPass, VkExtent2D swapChainExtent);
 		~PostPipeline();
 		virtual void cleanup();
 
@@ -21,7 +21,7 @@ namespace core {
 		vk::RenderPass renderPass;
 		vk::Extent2D swapChainExtent;
 
-		virtual void createPipelineLayout();
+		virtual void createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts);
 		virtual void createPipeline();
 
 	};

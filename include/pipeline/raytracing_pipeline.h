@@ -37,7 +37,7 @@ namespace core {
 	class RayTracingPipeline  : public Pipeline {
 	public:
 		RayTracingPipeline(VkDevice device);
-		RayTracingPipeline(VkDevice device, std::vector<DescriptorSet*> descriptorSets);
+		RayTracingPipeline(VkDevice device, std::vector<VkDescriptorSetLayout> descSetLayouts);
 		~RayTracingPipeline();
 		virtual void cleanup();
 
@@ -49,7 +49,7 @@ namespace core {
 		uint32_t descriptorSetsIndex;
 		SBTWrapper sbt;
 
-		virtual void createPipelineLayout();
+		virtual void createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts);
 		virtual void createPipeline();
 		void createShaderBindingTable();
 

@@ -12,6 +12,11 @@ layout(push_constant) uniform constants {
     uint64_t materialAddress;
 } PushConstants;
 
+layout(binding = 0, set = 0) uniform CameraUniforms {
+    mat4 viewProj;    // view * projection
+    mat4 viewInverse; // inverse view matrix
+    mat4 projInverse; // inverse projection matrix
+} camera;
 layout(location = 0) out flat uint64_t materialAddress;
 layout(location = 1) out vec3 fragColor;
 layout(location = 2) out vec2 outUV;

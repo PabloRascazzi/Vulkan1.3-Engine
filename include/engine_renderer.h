@@ -45,10 +45,12 @@ namespace core {
 		static Scene* scene; 
 		
 		// Descriptor Sets.
-		static DescriptorSet* globalDescSet;
+		static DescriptorSet* cameraDescSet;
+		static DescriptorSet* texturesDescSet;
 
 		// Descriptor buffers.
-		static std::vector<Buffer> cameraDescBuffers;
+		static Buffer cameraDescBuffer;
+		static uint32_t cameraDescBufferAlignment;
 
 		// Instances for all the renderers.
 		static Renderer* standardRenderer;

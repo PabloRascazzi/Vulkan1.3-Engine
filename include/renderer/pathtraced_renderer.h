@@ -38,6 +38,7 @@ namespace core {
 		// Descriptor buffers.
 		std::vector<Texture*> rtDescTextures;
 		// Descriptor Sets.
+		std::vector<DescriptorSet*> globalDescSets;
 		DescriptorSet* rtDescSet;
 		DescriptorSet* postDescSet;
 
@@ -48,12 +49,12 @@ namespace core {
 		void createCommandBuffers();
 		void createSyncObjects();
 
-		void createPipeline(VkDevice device, std::vector<DescriptorSet*> globalDescSets);
+		void createPipeline(VkDevice device);
 		void createDescriptorSets();
 		void initDescriptorSets(Scene& scene);
 		void updateDescriptorSets();
 
-		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Scene& scene);
+		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene);
 
 	};
 }

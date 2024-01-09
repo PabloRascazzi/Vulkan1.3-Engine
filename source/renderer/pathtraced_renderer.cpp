@@ -4,13 +4,14 @@
 namespace core {
 
     PathTracedRenderer::PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets) : Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain) {
+        this->firstRender = true;
+        this->globalDescSets = globalDescSets;
         createRenderPass();
         createFramebuffers();
         createCommandBuffers();
         createSyncObjects();
         createDescriptorSets();
-        createPipeline(device, globalDescSets);
-        this->firstRender = true;
+        createPipeline(device);
     }
 
     PathTracedRenderer::~PathTracedRenderer() {
@@ -122,61 +123,60 @@ namespace core {
         }
     }
 
+    //***************************************************************************************//
+    //                              Descriptor Sets & Pipelines                              //
+    //***************************************************************************************//
+
     void PathTracedRenderer::createDescriptorSets() {
         rtDescSet = new DescriptorSet();
         // Bind top-level acceleration structure descriptor.
-        rtDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        rtDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
         // Bind render pass output image descriptor.
-        rtDescSet->addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        rtDescSet->addDescriptor(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
         // Bind object descriptions buffer descriptor.
-        rtDescSet->addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        rtDescSet->addDescriptor(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
         // Create descriptor set.
-        rtDescSet->create(EngineContext::getDevice());
+        rtDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
+        rtDescSet->setName("RayTracing");
 
         postDescSet = new DescriptorSet();
         // Bind render pass input image descriptor.
-        postDescSet->addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+        postDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         // Create descriptor set.
-        postDescSet->create(EngineContext::getDevice());
+        postDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
+        postDescSet->setName("Post");
     }
 
     void PathTracedRenderer::initDescriptorSets(Scene& scene) {
-        // Fill DescriptorSets and create out images for ray-tracing render pass.
+        // Initialize descriptors for every frames in flight.
+        VkDescriptorImageInfo imageDescInfos[MAX_FRAMES_IN_FLIGHT];
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            DescriptorSet::setCurrentFrame(i);
-
-            // Upload TLAS uniform.
+            // Upload TLAS descriptor.
             VkWriteDescriptorSetAccelerationStructureKHR tlasDescInfo{};
             tlasDescInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
             tlasDescInfo.accelerationStructureCount = 1;
             tlasDescInfo.pAccelerationStructures = &scene.getTLAS().handle;
-            rtDescSet->writeAccelerationStructureKHR(0, tlasDescInfo);
+            rtDescSet->writeAccelerationStructureKHR(i, 0, tlasDescInfo);
 
             // Upload ray-tracing render pass output image uniform.
             Texture* outTexture = new Texture(swapChain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
             EngineContext::transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
             rtDescTextures.push_back(outTexture);
 
-            VkDescriptorImageInfo rtImageDescInfo{};
-            rtImageDescInfo.sampler = {};
-            rtImageDescInfo.imageView = rtDescTextures[i]->getImageView();
-            rtImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-            rtDescSet->writeImage(1, rtImageDescInfo);
-
-            VkDescriptorImageInfo postImageDescInfo{};
-            postImageDescInfo.sampler = rtDescTextures[i]->getSampler();
-            postImageDescInfo.imageView = rtDescTextures[i]->getImageView();
-            postImageDescInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-            postDescSet->writeImage(0, postImageDescInfo);
+            imageDescInfos[i].sampler = rtDescTextures[i]->getSampler();
+            imageDescInfos[i].imageView = rtDescTextures[i]->getImageView();
+            imageDescInfos[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            rtDescSet->writeImage(i, 1, imageDescInfos[i]);
+            postDescSet->writeImage(i, 0, imageDescInfos[i]);
 
             // Upload objects description buffer.
             VkDescriptorBufferInfo objDescInfo{};
             objDescInfo.buffer = scene.getObjDescriptions().buffer;
             objDescInfo.offset = 0;
             objDescInfo.range = VK_WHOLE_SIZE;
-            rtDescSet->writeBuffer(2, objDescInfo);
+            rtDescSet->writeBuffer(i, 2, objDescInfo);
         }
-        DescriptorSet::setCurrentFrame(0);
+        // Update descriptor sets.
         rtDescSet->update();
         postDescSet->update();
     }
@@ -185,15 +185,25 @@ namespace core {
         // TODO
     }
 
-    void PathTracedRenderer::createPipeline(VkDevice device, std::vector<DescriptorSet*> globalDescSets) {
-        std::vector<DescriptorSet*> rtDescSets(globalDescSets);
-        rtDescSets.insert(rtDescSets.end(), { this->rtDescSet });
-        std::vector<DescriptorSet*> postDescSets{ this->postDescSet };
-        rtPipeline = new RayTracingPipeline(device, rtDescSets);
-        postPipeline = new PostPipeline(device, "postShader", postDescSets, this->renderPass, this->swapChain.extent);
+    void PathTracedRenderer::createPipeline(VkDevice device) {
+        // Create list of descriptor set layouts for raytracing pipeline.
+        std::vector<VkDescriptorSetLayout> rtLayouts;
+        for (const auto& descSet : globalDescSets) rtLayouts.push_back(descSet->getSetLayout());
+        rtLayouts.push_back(this->rtDescSet->getSetLayout());
+
+        // Create list of descriptor set layouts for post pipeline.
+        std::vector<VkDescriptorSetLayout> postLayouts{ this->postDescSet->getSetLayout() };
+
+        // Create pipelines.
+        rtPipeline = new RayTracingPipeline(device, rtLayouts);
+        postPipeline = new PostPipeline(device, "postShader", postLayouts, this->renderPass, this->swapChain.extent);
     }
 
-    void PathTracedRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t imageIndex, Scene& scene) {
+    //***************************************************************************************//
+    //                                      Renderering                                      //
+    //***************************************************************************************//
+
+    void PathTracedRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -203,7 +213,7 @@ namespace core {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->rtPipeline->getHandle());
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets = this->rtPipeline->getDescriptorSetHandles();
+        std::vector<VkDescriptorSet> descSets{ this->globalDescSets[0]->getHandle(currentFrame), this->globalDescSets[1]->getHandle(0), this->rtDescSet->getHandle(currentFrame) };
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->rtPipeline->getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
 
         // Upload push constants.
@@ -249,7 +259,7 @@ namespace core {
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> postDescSets = this->postPipeline->getDescriptorSetHandles();
+        std::vector<VkDescriptorSet> postDescSets{ this->postDescSet->getHandle(currentFrame) };
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->postPipeline->getLayout(), 0, static_cast<uint32_t>(postDescSets.size()), postDescSets.data(), 0, nullptr);
 
         // Draw
@@ -276,9 +286,6 @@ namespace core {
         VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
         VK_CHECK(vkResetFences(device, 1, (VkFence*)&inFlightFences[currentFrame]));
 
-        // Set descriptor set currentFrame.
-        DescriptorSet::setCurrentFrame(currentFrame);
-
         // Acquire next image from swap chain.
         uint32_t imageIndex;
         VK_CHECK(vkAcquireNextImageKHR(device, swapChain.handle, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex));
@@ -287,7 +294,7 @@ namespace core {
         VK_CHECK(vkResetCommandBuffer(commandBuffers[currentFrame], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
 
         // Record command buffer.
-        recordCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], imageIndex, scene);
+        recordCommandBuffer((VkCommandBuffer&)commandBuffers[currentFrame], currentFrame, imageIndex, scene);
 
         // Submit command buffer.
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
