@@ -1,6 +1,7 @@
 #include <engine_globals.h>
 #include <engine_context.h>
 #include <engine_renderer.h>
+#include <script_engine.h>
 #include <input.h>
 #include <mesh.h>
 #include <texture.h>
@@ -25,6 +26,9 @@ int main() {
     EngineContext::getWindow().setMouseButtonCallback(Input::mouseButtonCallback);
     EngineContext::getWindow().setMouseMotionCallback(Input::mouseMotionCallback);
     EngineContext::setup();
+
+    // Setup scripting engine.
+    ScriptEngine::setup();
 
     // Print physical device name.
     VkPhysicalDeviceProperties deviceProperties;
@@ -113,6 +117,7 @@ int main() {
     delete plane;
     delete cube;
     delete scene;
+    ScriptEngine::cleanup();
     EngineRenderer::cleanup();
     EngineContext::cleanup();
     Input::cleanup();
