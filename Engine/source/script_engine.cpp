@@ -13,7 +13,7 @@ namespace core {
 	MonoImage* ScriptEngine::GameAssemblyImage = nullptr;
 
 	void ScriptEngine::setup() {
-		mono_set_assemblies_path("./mono/lib/4.5");
+		mono_set_assemblies_path("../mono/lib/4.5");
 
 		MonoDomain* rootDomain = mono_jit_init("JITRuntime");
 		DEBUG_ASSERT_MSG(rootDomain != nullptr, "Failed to initialize mono root domain.");

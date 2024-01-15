@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -106,13 +106,13 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>include;$(VULKAN_SDK)\include;$(VULKAN_SDK)\Third-Party\include;vendor\mono\include;vendor\vma\include;vendor\stb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include;$(VULKAN_SDK)\include;$(VULKAN_SDK)\Third-Party\include;vendor\vma\include;vendor\stb\include;vendor\mono\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;$(VULKAN_SDK)\Third-Party\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;$(VULKAN_SDK)\Third-Party\Bin;vendor\mono\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;mono-2.0-sgen.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
     <PreBuildEvent>
@@ -161,6 +161,7 @@
     <ClInclude Include="include\resource_primitives.h" />
     <ClInclude Include="include\rtime.h" />
     <ClInclude Include="include\scene.h" />
+    <ClInclude Include="include\script_engine.h" />
     <ClInclude Include="include\texture.h" />
     <ClInclude Include="include\window.h" />
   </ItemGroup>
@@ -197,6 +198,7 @@
     <ClCompile Include="source\resource_primitives.cpp" />
     <ClCompile Include="source\rtime.cpp" />
     <ClCompile Include="source\scene.cpp" />
+    <ClCompile Include="source\script_engine.cpp" />
     <ClCompile Include="source\texture.cpp" />
     <ClCompile Include="source\vulkan_extension.cpp" />
     <ClCompile Include="source\window.cpp" />
