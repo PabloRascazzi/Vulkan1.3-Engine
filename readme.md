@@ -7,8 +7,12 @@ Author: Pablo Rascazzi
 * **Build** solution in either *Debug x64* or *Release x64* configuration
 * **Copy** the **dynamic libraries** to the appropriate *Debug* or *Release* build directories.
 	* Copy the following libraries into `.\x64\Debug\`:
+		* `.\Engine\vendor\mono\bin\Debug\mono-2.0-sgen.dll`
+		* `.\Engine\vendor\mono\bin\Debug\MonoPosixHelper.dll`
 		* `.\Engine\vendor\SDL\bin\SDL2.dll`
 	* Copy the following libraries into `.\x64\Release\`:
+		* `.\Engine\vendor\mono\bin\Release\mono-2.0-sgen.dll`
+		* `.\Engine\vendor\mono\bin\Release\MonoPosixHelper.dll`
 		* `.\Engine\vendor\SDL\bin\SDL2.dll`
 * **Run** python script `compileShaders.py` in the project's root directory
   * Change \``COMPILER_PATH`\` variable from `compileShader.py` if necessary
