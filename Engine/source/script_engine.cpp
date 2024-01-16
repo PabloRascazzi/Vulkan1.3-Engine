@@ -25,7 +25,7 @@ namespace core {
 
 		// Load core assembly.
 		std::printf("Core Assembly Types:\n");
-		ScriptEngine::CoreAssembly = LoadCSharpAssembly("./resource/ScriptCore.dll");
+		ScriptEngine::CoreAssembly = LoadCSharpAssembly("./resource/Engine-ScriptCore.dll");
 		ScriptEngine::CoreAssemblyImage = mono_assembly_get_image(CoreAssembly);
 		PrintAssemblyTypes(CoreAssembly);
 
