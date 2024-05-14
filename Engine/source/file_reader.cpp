@@ -1,9 +1,10 @@
 #include <file_reader.h>
 #include <debugger.h>
 #include <iostream>
+#include <fstream>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb/stb_image.h"
+#include <stb_image.h>
 
 #define RASC_HEADER (('C'<<24)+('S'<<16)+('A'<<8)+'R')
 
@@ -156,5 +157,32 @@ namespace core {
 		stbi_image_free(data);
 
 		return texture;
+	}
+
+	char* FileReader::readBytes(const std::string& filepath, uint32_t* size) {
+		// Open file stream.
+		std::ifstream stream(filepath, std::ios::binary | std::ios::ate);
+		if (!stream) {
+			std::cerr << "Error: File '" << filepath << "' could not be read." << std::endl;
+			return nullptr;
+		}
+
+		// Fetch file's byte size.
+		std::streampos end = stream.tellg();
+		stream.seekg(0, std::ios::beg);
+		uint32_t bufferSize = end - stream.tellg();
+
+		if (bufferSize == 0) {
+			std::cerr << "Error: File '" << filepath << "' is empty." << std::endl;
+			return nullptr;
+		}
+
+		// Read file into buffer, then close stream.
+		char* buffer = new char[bufferSize];
+		stream.read((char*)buffer, bufferSize);
+		stream.close();
+
+		*size = bufferSize;
+		return buffer;
 	}
 }

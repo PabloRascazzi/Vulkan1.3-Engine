@@ -213,7 +213,7 @@ namespace core {
         // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
 
         // Allocate and map data to camera desc buffer.
-        cameraDescBufferAlignment = alignUp(EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment, sizeof(CameraDescriptorBuffer));
+        cameraDescBufferAlignment = static_cast<uint32_t>(alignUp(EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment, sizeof(CameraDescriptorBuffer)));
         CameraDescriptorBuffer cameraUBOs[MAX_FRAMES_IN_FLIGHT]{ cameraUBO };
         ResourceAllocator::createBuffer(cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, cameraDescBuffer, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         ResourceAllocator::mapDataToBuffer(cameraDescBuffer, cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, &cameraUBO);

@@ -17,6 +17,7 @@ namespace core {
 	public:
 		static Mesh* readMeshFile(std::string filename);
 		static Texture* readImageFile(std::string filename, const ColorSpace& colorSpace = COLOR_SPACE_SRGB);
+		static char* readBytes(const std::string& filepath, uint32_t* size);
 
 	private:
 

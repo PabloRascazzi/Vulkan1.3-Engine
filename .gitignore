@@ -48,8 +48,9 @@ x64/[Rr]elease/*
 .history/
 
 ## Project Specific
-# Compiled shaders files
-resource/shaders/SPIR-V/*
-# Build result DLLs exceptions
-!x64/[Dd]ebug/*.dll
-!x64/[Rr]elease/*.dll
+
+# Ignore compiled shaders files
+Engine/resource/shaders/SPIR-V/*
+
+# Exception for library DLLs
+!Engine/vendor/**

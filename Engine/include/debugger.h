@@ -71,7 +71,7 @@ namespace core {
 		static VkDebugReportCallbackEXT debugReportCallback;
 
 		static void createDebugReportCallback(VkInstance instance);
-		static VkBool32 Debugger::debugReportCallbackHandler(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData);
+		static VkBool32 debugReportCallbackHandler(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData);
 
 	};
 }

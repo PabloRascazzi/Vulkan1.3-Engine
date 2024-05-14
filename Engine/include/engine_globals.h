@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 
 #define ENGINE_GRAPHICS_API_VERSION VK_API_VERSION_1_3
 

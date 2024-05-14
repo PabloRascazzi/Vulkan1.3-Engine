@@ -10,7 +10,6 @@
 #endif
 
 #include <vulkan/vulkan.hpp>
-#include "vma/vk_mem_alloc.h"
 
 #include <window.h>
 #include <pipeline/pipeline.h>

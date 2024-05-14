@@ -1,6 +1,5 @@
 #pragma once
 #include <pipeline/pipeline.h>
-#include "vma/vk_mem_alloc.h"
 
 #include <glm/glm.hpp>
 #include <vector>

@@ -5,7 +5,11 @@ Author: Pablo Rascazzi
 ### Instructions
 * **Clone/download** repository
 * **Build** solution in either *Debug x64* or *Release x64* configuration
-* **Move SDL2.dll** file from `.\libary\` directory to the generated `.\x64\Debug\` or `.\x64\Release\` directories
+* **Copy** the **dynamic libraries** to the appropriate *Debug* or *Release* build directories.
+	* Copy the following libraries into `.\x64\Debug\`:
+		* `.\Engine\vendor\SDL\bin\SDL2.dll`
+	* Copy the following libraries into `.\x64\Release\`:
+		* `.\Engine\vendor\SDL\bin\SDL2.dll`
 * **Run** python script `compileShaders.py` in the project's root directory
   * Change \``COMPILER_PATH`\` variable from `compileShader.py` if necessary
 * **Run** solution
