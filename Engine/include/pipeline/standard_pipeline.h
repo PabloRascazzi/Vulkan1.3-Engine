@@ -23,16 +23,15 @@ namespace core {
 	class StandardPipeline : public Pipeline {
 	public:
 		StandardPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent);
-		StandardPipeline(VkDevice device, std::string filename, std::vector<VkDescriptorSetLayout> descSetLayouts, VkRenderPass renderPass, VkExtent2D swapChainExtent);
-		~StandardPipeline();
-		virtual void cleanup();
+		StandardPipeline(VkDevice device, std::string filename, const std::vector<VkDescriptorSetLayout>& descSetLayouts, VkRenderPass renderPass, VkExtent2D swapChainExtent);
+		~StandardPipeline() = default;
 
 	private:
 		std::string filename;
 		vk::RenderPass renderPass;
 		vk::Extent2D swapChainExtent;
 
-		virtual void createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts);
+		virtual void createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts);
 		virtual void createPipeline();
 
 	};

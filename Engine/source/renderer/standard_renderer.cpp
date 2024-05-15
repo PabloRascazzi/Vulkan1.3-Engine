@@ -22,7 +22,7 @@ namespace core {
     }
 
     void StandardRenderer::cleanup() {
-        pipeline->cleanup();
+        delete static_cast<StandardPipeline*>(this->pipeline);
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
             vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);

@@ -10,24 +10,27 @@ namespace core {
 		PIPELINE_TYPE_NONE, 
 		PIPELINE_TYPE_RASTERIZATION, 
 		PIPELINE_TYPE_RAY_TRACING,
+		PIPELINE_TYPE_COMPUTE,
 	};
 
 	class Pipeline {
 	public:
-		Pipeline(VkDevice device);
-		virtual void cleanup() = 0;
+		Pipeline(VkDevice device, const PipelineType& type);
+		~Pipeline();
 
-		vk::Pipeline getHandle() { return pipeline; }
-		vk::PipelineLayout getLayout() { return layout; }
+		VkPipeline getHandle() { return pipeline; }
+		VkPipelineLayout getLayout() { return layout; }
 		PipelineType getType() { return type; }
 
-	protected:
-		vk::Device device;
-		vk::Pipeline pipeline;
-		vk::PipelineLayout layout;
+	private:
 		PipelineType type;
 
-		virtual void createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts) = 0;
+	protected:
+		VkDevice device;
+		VkPipeline pipeline;
+		VkPipelineLayout layout;
+
+		virtual void createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) = 0;
 		virtual void createPipeline() = 0;
 
 		VkShaderModule createShaderModule(const std::string& filename);

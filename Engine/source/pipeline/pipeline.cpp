@@ -5,9 +5,20 @@
 
 namespace core {
 
-	Pipeline::Pipeline(VkDevice device) {
-		this->type = PipelineType::PIPELINE_TYPE_NONE;
+	Pipeline::Pipeline(VkDevice device, const PipelineType& type) {
+		this->type = type;
 		this->device = device;
+		this->pipeline = VK_NULL_HANDLE;
+		this->layout = VK_NULL_HANDLE;
+	}
+
+	Pipeline::~Pipeline() {
+		if (pipeline != VK_NULL_HANDLE) {
+			vkDestroyPipeline(device, pipeline, nullptr);
+		}
+		if (layout != VK_NULL_HANDLE) {
+			vkDestroyPipelineLayout(device, layout, nullptr);
+		}
 	}
 
 	VkShaderModule Pipeline::createShaderModule(const std::string& filename) {

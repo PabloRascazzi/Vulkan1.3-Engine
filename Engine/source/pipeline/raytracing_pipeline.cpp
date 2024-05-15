@@ -1,11 +1,14 @@
 #include <pipeline/raytracing_pipeline.h>
+#include <engine_globals.h>
 #include <engine_context.h>
 
 namespace core {
 
-	RayTracingPipeline::RayTracingPipeline(VkDevice device) : RayTracingPipeline(device, std::vector<VkDescriptorSetLayout>()) {}
-	RayTracingPipeline::RayTracingPipeline(VkDevice device, std::vector<VkDescriptorSetLayout> descSetLayouts) : Pipeline(device) {
-		this->type = PipelineType::PIPELINE_TYPE_RAY_TRACING;
+	RayTracingPipeline::RayTracingPipeline(VkDevice device) : 
+		RayTracingPipeline(device, std::vector<VkDescriptorSetLayout>()) {}
+
+	RayTracingPipeline::RayTracingPipeline(VkDevice device, const std::vector<VkDescriptorSetLayout>& descSetLayouts) : 
+		Pipeline(device, PipelineType::PIPELINE_TYPE_RAY_TRACING) {
 		
 		createPipelineLayout(descSetLayouts);
 		createPipeline();
@@ -13,16 +16,10 @@ namespace core {
 	}
 
 	RayTracingPipeline::~RayTracingPipeline() {
-		cleanup();
-	}
-
-	void RayTracingPipeline::cleanup() {
 		ResourceAllocator::destroyBuffer(sbt.buffer);
-		device.destroyPipeline(pipeline);
-		device.destroyPipelineLayout(layout);
 	}
 
-	void RayTracingPipeline::createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts) {
+	void RayTracingPipeline::createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) {
 		// Pipeline push constants.
 		VkPushConstantRange pushConstant;
 		pushConstant.offset = 0;
@@ -37,9 +34,7 @@ namespace core {
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
-		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, (VkPipelineLayout*)&layout) != VK_SUCCESS) {
-			throw std::runtime_error("Could not create pipeline layout.");
-		}
+		VK_CHECK_MSG(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout), "Could not create raytracing pipeline layout.");
 	}
 
 	void RayTracingPipeline::createPipeline() {
@@ -126,10 +121,10 @@ namespace core {
 		}
 
 		// Pipeline creation cleanup.
-		device.destroyShaderModule(genShaderStageInfo.module);
-		device.destroyShaderModule(missShaderStageInfo.module);
-		device.destroyShaderModule(chitShaderStageInfo.module);
-		device.destroyShaderModule(chitReflectShaderStageInfo.module);
+		vkDestroyShaderModule(device, genShaderStageInfo.module, nullptr);
+		vkDestroyShaderModule(device, missShaderStageInfo.module, nullptr);
+		vkDestroyShaderModule(device, chitShaderStageInfo.module, nullptr);
+		vkDestroyShaderModule(device, chitReflectShaderStageInfo.module, nullptr);
 	}
 
 	void RayTracingPipeline::createShaderBindingTable() {

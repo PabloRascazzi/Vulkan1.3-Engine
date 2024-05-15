@@ -159,7 +159,7 @@ namespace core {
 		return texture;
 	}
 
-	char* FileReader::readBytes(const std::string& filepath, uint32_t* size) {
+	char* FileReader::readBytes(const std::string& filepath, size_t* size) {
 		// Open file stream.
 		std::ifstream stream(filepath, std::ios::binary | std::ios::ate);
 		if (!stream) {
@@ -170,7 +170,7 @@ namespace core {
 		// Fetch file's byte size.
 		std::streampos end = stream.tellg();
 		stream.seekg(0, std::ios::beg);
-		uint32_t bufferSize = end - stream.tellg();
+		size_t bufferSize = static_cast<size_t>(end - stream.tellg());
 
 		if (bufferSize == 0) {
 			std::cerr << "Error: File '" << filepath << "' is empty." << std::endl;

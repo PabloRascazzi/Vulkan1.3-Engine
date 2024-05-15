@@ -1,12 +1,15 @@
 #include <pipeline/standard_pipeline.h>
+#include <engine_globals.h>
 #include <mesh.h>
 
 namespace core {
 
 	StandardPipeline::StandardPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent) : 
 		StandardPipeline(device, filename, std::vector<VkDescriptorSetLayout>(), renderPass, swapChainExtent) {}
-	StandardPipeline::StandardPipeline(VkDevice device, std::string filename, std::vector<VkDescriptorSetLayout> descSetLayouts, VkRenderPass renderPass, VkExtent2D swapChainExtent) : Pipeline(device) {
-		this->type = PipelineType::PIPELINE_TYPE_RASTERIZATION;
+	
+	StandardPipeline::StandardPipeline(VkDevice device, std::string filename, const std::vector<VkDescriptorSetLayout>& descSetLayouts, VkRenderPass renderPass, VkExtent2D swapChainExtent) : 
+		Pipeline(device, PipelineType::PIPELINE_TYPE_RASTERIZATION) {
+
 		this->filename = filename;
 		this->renderPass = renderPass;
 		this->swapChainExtent = swapChainExtent;
@@ -15,16 +18,7 @@ namespace core {
 		createPipeline();
 	}
 
-	StandardPipeline::~StandardPipeline() { 
-		cleanup(); 
-	}
-
-	void StandardPipeline::cleanup() {
-		device.destroyPipeline(pipeline);
-		device.destroyPipelineLayout(layout);
-	}
-
-	void StandardPipeline::createPipelineLayout(std::vector<VkDescriptorSetLayout>& layouts) {
+	void StandardPipeline::createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) {
 		// Pipeline push constants.
 		VkPushConstantRange pushConstant;
 		pushConstant.offset = 0;
@@ -39,9 +33,7 @@ namespace core {
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
-		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, (VkPipelineLayout*)&layout) != VK_SUCCESS) {
-			throw std::runtime_error("Could not create pipeline layout.");
-		}
+		VK_CHECK_MSG(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout), "Could not create standard pipeline layout.");
 	}
 
 	void StandardPipeline::createPipeline() {
@@ -181,7 +173,7 @@ namespace core {
 		}
 
 		// Pipeline creation cleanup.
-		device.destroyShaderModule(vertShaderModule);
-		device.destroyShaderModule(fragShaderModule);
+		vkDestroyShaderModule(device, vertShaderModule, nullptr);
+		vkDestroyShaderModule(device, fragShaderModule, nullptr);
 	}
 }

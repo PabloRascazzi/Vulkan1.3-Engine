@@ -20,8 +20,8 @@ namespace core {
 
     void PathTracedRenderer::cleanup() {
         // Cleanup pipelines.
-        rtPipeline->cleanup();
-        postPipeline->cleanup();
+        delete static_cast<RayTracingPipeline*>(this->rtPipeline);
+        delete static_cast<PostPipeline*>(this->postPipeline);
         // Cleanup descriptor buffers.
         for (auto& texture : rtDescTextures)
             delete texture;
