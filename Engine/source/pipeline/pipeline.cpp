@@ -5,27 +5,23 @@
 
 namespace core {
 
-	Pipeline::Pipeline(VkDevice device, const PipelineType& type) {
-		this->type = type;
-		this->device = device;
-		this->pipeline = VK_NULL_HANDLE;
-		this->layout = VK_NULL_HANDLE;
-	}
+	Pipeline::Pipeline(VkDevice device, const PipelineType& type) : 
+		m_type(type), m_device(device), m_pipeline(VK_NULL_HANDLE), m_layout(VK_NULL_HANDLE) {}
 
 	Pipeline::~Pipeline() {
-		if (pipeline != VK_NULL_HANDLE) {
-			vkDestroyPipeline(device, pipeline, nullptr);
+		if (m_pipeline != VK_NULL_HANDLE) {
+			vkDestroyPipeline(m_device, m_pipeline, nullptr);
 		}
-		if (layout != VK_NULL_HANDLE) {
-			vkDestroyPipelineLayout(device, layout, nullptr);
+		if (m_layout != VK_NULL_HANDLE) {
+			vkDestroyPipelineLayout(m_device, m_layout, nullptr);
 		}
 	}
 
-	VkShaderModule Pipeline::createShaderModule(const std::string& filename) {
+	VkShaderModule Pipeline::CreateShaderModule(const std::string& shadername) {
 		// Read all file data into a buffer.
-		std::ifstream file(filename, std::ios::ate | std::ios::binary);
+		std::ifstream file(shadername, std::ios::ate | std::ios::binary);
 		if (!file.is_open()) {
-			throw std::runtime_error("Could not open shader file '" + filename + "'.");
+			throw std::runtime_error("Could not open shader file '" + shadername + "'.");
 		}
 
 		size_t fileSize = (size_t)file.tellg();
@@ -43,7 +39,7 @@ namespace core {
 
 		// Create shader module.
 		VkShaderModule shaderModule;
-		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+		if (vkCreateShaderModule(m_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
 			throw std::runtime_error("Could not create shader module.");
 		}
 		return shaderModule;

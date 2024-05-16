@@ -50,7 +50,7 @@ namespace core {
         delete cameraDescSet;
         delete texturesDescSet;
         // Cleanup swapchain.
-        swapchain.destroy(EngineContext::getDevice());
+        swapchain.Destroy(EngineContext::getDevice());
     }
 
 	//***************************************************************************************//
@@ -284,9 +284,9 @@ namespace core {
 
         // Select renderer and render scene.
         switch (rendermode) {
-            case 0: static_cast<StandardRenderer*>(standardRenderer)->render(currentSwapchainIndex, *scene); break;
-            case 1: static_cast<PathTracedRenderer*>(pathtracedRenderer)->render(currentSwapchainIndex, *scene); break;
-            case 2: static_cast<GaussianRenderer*>(gaussianRenderer)->render(currentSwapchainIndex, *scene); break;
+            case 0: standardRenderer->Render(currentSwapchainIndex, *scene); break;
+            case 1: pathtracedRenderer->Render(currentSwapchainIndex, *scene); break;
+            case 2: gaussianRenderer->Render(currentSwapchainIndex, *scene); break;
             default: break;
         }
 

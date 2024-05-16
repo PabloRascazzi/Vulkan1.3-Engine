@@ -1,7 +1,5 @@
 #pragma once
-#include <engine_renderer.h>
 #include <renderer/renderer.h>
-#include <pipeline/pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
 #include <pipeline/post_pipeline.h>
 #include <resource_allocator.h>
@@ -14,46 +12,29 @@ namespace core {
 
 	class PathTracedRenderer : public Renderer {
 	public:
-		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets);
+		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<DescriptorSet*> globalDescSets);
 		~PathTracedRenderer();
 
-		virtual void render(const uint32_t currentFrame, Scene& scene);
-
-		VkRenderPass& getRenderPass() { return renderPass; }
-
 	private:
-		Swapchain& swapChain;
-		VkRenderPass renderPass;
-		std::vector<VkFramebuffer> swapChainFramebuffers;
-
-		std::vector<VkCommandBuffer> commandBuffers;
-		std::vector<VkSemaphore> imageAvailableSemaphores;
-		std::vector<VkSemaphore> renderFinishedSemaphores;
-		std::vector<VkFence> inFlightFences;
-
 		// Pipelines.
-		Pipeline* rtPipeline;
-		Pipeline* postPipeline;
+		RayTracingPipeline* m_rtPipeline;
+		PostPipeline* m_postPipeline;
 		// Descriptor buffers.
-		std::vector<Texture*> rtDescTextures;
+		std::vector<Texture*> m_rtDescTextures;
 		// Descriptor Sets.
-		std::vector<DescriptorSet*> globalDescSets;
-		DescriptorSet* rtDescSet;
-		DescriptorSet* postDescSet;
+		std::vector<DescriptorSet*> m_globalDescSets;
+		DescriptorSet* m_rtDescSet;
+		DescriptorSet* m_postDescSet;
 
-		bool firstRender;
+		void CreateRenderPass();
+		void CreateFramebuffers();
+		void CreateDescriptorSets();
+		void CreatePipeline();
 
-		void createRenderPass();
-		void createFramebuffers();
-		void createCommandBuffers();
-		void createSyncObjects();
+		void InitDescriptorSets(Scene& scene);
+		void UpdateDescriptorSets(Scene& scene);
 
-		void createPipeline(VkDevice device);
-		void createDescriptorSets();
-		void initDescriptorSets(Scene& scene);
-		void updateDescriptorSets();
-
-		void recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene);
+		void RecordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene);
 
 	};
 }

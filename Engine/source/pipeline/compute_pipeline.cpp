@@ -3,19 +3,17 @@
 
 namespace core {
 
-	ComputePipeline::ComputePipeline(VkDevice device, const std::string& filename) :
-		ComputePipeline(device, filename, std::vector<VkDescriptorSetLayout>()) {}
+	ComputePipeline::ComputePipeline(VkDevice device, const std::string& shadername) :
+		ComputePipeline(device, shadername, std::vector<VkDescriptorSetLayout>()) {}
 	
-	ComputePipeline::ComputePipeline(VkDevice device, const std::string& filename, const std::vector<VkDescriptorSetLayout>& descSetLayouts) : 
-		Pipeline(device, PipelineType::PIPELINE_TYPE_COMPUTE) {
-		
-		this->filename = filename;
+	ComputePipeline::ComputePipeline(VkDevice device, const std::string& shadername, const std::vector<VkDescriptorSetLayout>& descSetLayouts) :
+		Pipeline(device, PipelineType::PIPELINE_TYPE_COMPUTE), m_shadername(shadername) {
 
-		createPipelineLayout(descSetLayouts);
-		createPipeline();
+		CreatePipelineLayout(descSetLayouts);
+		CreatePipeline();
 	}
 
-	void ComputePipeline::createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) {
+	void ComputePipeline::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) {
 		// Pipeline layout creation.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -24,12 +22,12 @@ namespace core {
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-		VK_CHECK_MSG(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout), "Could not create compute pipeline layout.");
+		VK_CHECK_MSG(vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_layout), "Could not create compute pipeline layout.");
 	}
 
-	void ComputePipeline::createPipeline() {
+	void ComputePipeline::CreatePipeline() {
 		// Shader stage creation.
-		VkShaderModule shaderModule = createShaderModule("./resource/shaders/SPIR-V/" + filename + ".comp.spv");
+		VkShaderModule shaderModule = CreateShaderModule("./resource/shaders/SPIR-V/" + m_shadername + ".comp.spv");
 
 		VkPipelineShaderStageCreateInfo shaderStageInfo{};
 		shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -41,11 +39,11 @@ namespace core {
 		VkComputePipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
 		pipelineInfo.stage = shaderStageInfo;
-		pipelineInfo.layout = layout;
+		pipelineInfo.layout = m_layout;
 
-		VK_CHECK_MSG(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline), "Could not create compute pipeline.");
+		VK_CHECK_MSG(vkCreateComputePipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline), "Could not create compute pipeline.");
 
 		// Pipeline creation cleanup.
-		vkDestroyShaderModule(device, shaderModule, nullptr);
+		vkDestroyShaderModule(m_device, shaderModule, nullptr);
 	}
 }

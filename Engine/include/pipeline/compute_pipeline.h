@@ -5,15 +5,15 @@ namespace core {
 
 	class ComputePipeline : public Pipeline {
 	public:
-		ComputePipeline(VkDevice device, const std::string& filename);
-		ComputePipeline(VkDevice device, const std::string& filename, const std::vector<VkDescriptorSetLayout>& descSetLayouts);
+		ComputePipeline(VkDevice device, const std::string& shadername);
+		ComputePipeline(VkDevice device, const std::string& shadername, const std::vector<VkDescriptorSetLayout>& descSetLayouts);
 		~ComputePipeline() = default;
 
 	private:
-		std::string filename;
+		std::string m_shadername;
 
-		virtual void createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts);
-		virtual void createPipeline();
+		virtual void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts);
+		virtual void CreatePipeline();
 
 	};
 }

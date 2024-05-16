@@ -76,7 +76,7 @@ int main() {
     EngineRenderer::setup(scene);
 
     // Main loop
-    uint8_t rendermode = true;
+    uint8_t rendermode = 0;
     while (EngineContext::update()) {
         if (Input::getKeyDown(INPUT_KEY_ESCAPE)) {
             EngineContext::exit();

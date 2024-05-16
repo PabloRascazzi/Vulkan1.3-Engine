@@ -162,6 +162,7 @@
     <ClInclude Include="include\resource_primitives.h" />
     <ClInclude Include="include\rtime.h" />
     <ClInclude Include="include\scene.h" />
+    <ClInclude Include="include\swapchain.h" />
     <ClInclude Include="include\texture.h" />
     <ClInclude Include="include\window.h" />
   </ItemGroup>

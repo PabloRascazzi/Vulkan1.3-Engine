@@ -3,21 +3,17 @@
 
 namespace core {
 
-	PostPipeline::PostPipeline(VkDevice device, std::string filename, VkRenderPass renderPass, VkExtent2D swapChainExtent) : 
-		PostPipeline(device, filename, std::vector<VkDescriptorSetLayout>(), renderPass, swapChainExtent) {}
+	PostPipeline::PostPipeline(VkDevice device, std::string shadername, VkRenderPass renderPass, VkExtent2D swapchainExtent) : 
+		PostPipeline(device, shadername, std::vector<VkDescriptorSetLayout>(), renderPass, swapchainExtent) {}
 
-	PostPipeline::PostPipeline(VkDevice device, std::string filename, const std::vector<VkDescriptorSetLayout>& descSetLayouts, VkRenderPass renderPass, VkExtent2D swapChainExtent) : 
-		Pipeline(device, PipelineType::PIPELINE_TYPE_RASTERIZATION) {
-		
-		this->filename = filename;
-		this->renderPass = renderPass;
-		this->swapChainExtent = swapChainExtent;
+	PostPipeline::PostPipeline(VkDevice device, std::string shadername, const std::vector<VkDescriptorSetLayout>& descSetLayouts, VkRenderPass renderPass, VkExtent2D swapchainExtent) :
+		Pipeline(device, PipelineType::PIPELINE_TYPE_RASTERIZATION), m_shadername(shadername), m_renderPass(renderPass), m_swapchainExtent(swapchainExtent) {
 
-		createPipelineLayout(descSetLayouts);
-		createPipeline();
+		CreatePipelineLayout(descSetLayouts);
+		CreatePipeline();
 	}
 
-	void PostPipeline::createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) {
+	void PostPipeline::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) {
 		// Pipeline layout creation.
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -26,13 +22,13 @@ namespace core {
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-		VK_CHECK_MSG(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout), "Could not create compute pipeline layout.");
+		VK_CHECK_MSG(vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_layout), "Could not create compute pipeline layout.");
 	}
 
-	void PostPipeline::createPipeline() {
+	void PostPipeline::CreatePipeline() {
 		// Shader stage creation.
-		VkShaderModule vertShaderModule = createShaderModule("./resource/shaders/SPIR-V/"+filename+".vert.spv");
-		VkShaderModule fragShaderModule = createShaderModule("./resource/shaders/SPIR-V/"+filename+".frag.spv");
+		VkShaderModule vertShaderModule = CreateShaderModule("./resource/shaders/SPIR-V/"+ m_shadername +".vert.spv");
+		VkShaderModule fragShaderModule = CreateShaderModule("./resource/shaders/SPIR-V/"+ m_shadername +".frag.spv");
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -77,14 +73,14 @@ namespace core {
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = (float)swapChainExtent.width;
-		viewport.height = (float)swapChainExtent.height;
+		viewport.width = (float)m_swapchainExtent.width;
+		viewport.height = (float)m_swapchainExtent.height;
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 
 		VkRect2D scissor{};
 		scissor.offset = {0,0};
-		scissor.extent = swapChainExtent;
+		scissor.extent = m_swapchainExtent;
 
 		VkPipelineViewportStateCreateInfo viewportStateInfo{};
 		viewportStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -141,16 +137,14 @@ namespace core {
 		pipelineInfo.pDepthStencilState = nullptr;
 		pipelineInfo.pColorBlendState = &colorBlendInfo;
 		pipelineInfo.pDynamicState = &dynamicStateInfo;
-		pipelineInfo.layout = layout;
-		pipelineInfo.renderPass = renderPass;
+		pipelineInfo.layout = m_layout;
+		pipelineInfo.renderPass = m_renderPass;
 		pipelineInfo.subpass = 0;
 
-		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, (VkPipeline*)&pipeline) != VK_SUCCESS) {
-			throw std::runtime_error("Could not create graphics pipeline.");
-		}
+		VK_CHECK_MSG(vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline), "Could not create graphics pipeline.");
 
 		// Pipeline creation cleanup.
-		vkDestroyShaderModule(device, vertShaderModule, nullptr);
-		vkDestroyShaderModule(device, fragShaderModule, nullptr);
+		vkDestroyShaderModule(m_device, vertShaderModule, nullptr);
+		vkDestroyShaderModule(m_device, fragShaderModule, nullptr);
 	}
 }

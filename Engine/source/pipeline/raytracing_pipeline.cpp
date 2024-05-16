@@ -10,16 +10,16 @@ namespace core {
 	RayTracingPipeline::RayTracingPipeline(VkDevice device, const std::vector<VkDescriptorSetLayout>& descSetLayouts) : 
 		Pipeline(device, PipelineType::PIPELINE_TYPE_RAY_TRACING) {
 		
-		createPipelineLayout(descSetLayouts);
-		createPipeline();
-		createShaderBindingTable();
+		CreatePipelineLayout(descSetLayouts);
+		CreatePipeline();
+		CreateShaderBindingTable();
 	}
 
 	RayTracingPipeline::~RayTracingPipeline() {
-		ResourceAllocator::destroyBuffer(sbt.buffer);
+		ResourceAllocator::destroyBuffer(m_sbt.buffer);
 	}
 
-	void RayTracingPipeline::createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) {
+	void RayTracingPipeline::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) {
 		// Pipeline push constants.
 		VkPushConstantRange pushConstant;
 		pushConstant.offset = 0;
@@ -34,37 +34,37 @@ namespace core {
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
-		VK_CHECK_MSG(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout), "Could not create raytracing pipeline layout.");
+		VK_CHECK_MSG(vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_layout), "Could not create raytracing pipeline layout.");
 	}
 
-	void RayTracingPipeline::createPipeline() {
+	void RayTracingPipeline::CreatePipeline() {
 		// Create shader stages.
 		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 
 		VkPipelineShaderStageCreateInfo genShaderStageInfo{};
 		genShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		genShaderStageInfo.module = createShaderModule("./resource/shaders/SPIR-V/raytrace.rgen.spv");
+		genShaderStageInfo.module = CreateShaderModule("./resource/shaders/SPIR-V/raytrace.rgen.spv");
 		genShaderStageInfo.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 		genShaderStageInfo.pName = "main";
 		shaderStages.push_back(genShaderStageInfo);
 
 		VkPipelineShaderStageCreateInfo missShaderStageInfo{};
 		missShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		missShaderStageInfo.module = createShaderModule("./resource/shaders/SPIR-V/raytrace.rmiss.spv");
+		missShaderStageInfo.module = CreateShaderModule("./resource/shaders/SPIR-V/raytrace.rmiss.spv");
 		missShaderStageInfo.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
 		missShaderStageInfo.pName = "main";
 		shaderStages.push_back(missShaderStageInfo);
 
 		VkPipelineShaderStageCreateInfo chitShaderStageInfo{};
 		chitShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		chitShaderStageInfo.module = createShaderModule("./resource/shaders/SPIR-V/raytrace.rchit.spv");
+		chitShaderStageInfo.module = CreateShaderModule("./resource/shaders/SPIR-V/raytrace.rchit.spv");
 		chitShaderStageInfo.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 		chitShaderStageInfo.pName = "main";
 		shaderStages.push_back(chitShaderStageInfo);
 
 		VkPipelineShaderStageCreateInfo chitReflectShaderStageInfo{};
 		chitReflectShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		chitReflectShaderStageInfo.module = createShaderModule("./resource/shaders/SPIR-V/raytrace_reflect.rchit.spv");
+		chitReflectShaderStageInfo.module = CreateShaderModule("./resource/shaders/SPIR-V/raytrace_reflect.rchit.spv");
 		chitReflectShaderStageInfo.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 		chitReflectShaderStageInfo.pName = "main";
 		//shaderStages.push_back(chitReflectShaderStageInfo);
@@ -77,7 +77,7 @@ namespace core {
 		genShaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
 		genShaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
 		genShaderGroupInfo.generalShader = 0;
-		shaderGroups.push_back(genShaderGroupInfo);
+		m_shaderGroups.push_back(genShaderGroupInfo);
 
 		VkRayTracingShaderGroupCreateInfoKHR missShaderGroupInfo{};
 		missShaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -86,7 +86,7 @@ namespace core {
 		missShaderGroupInfo.closestHitShader = VK_SHADER_UNUSED_KHR;
 		missShaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
 		missShaderGroupInfo.generalShader = 1;
-		shaderGroups.push_back(missShaderGroupInfo);
+		m_shaderGroups.push_back(missShaderGroupInfo);
 
 		VkRayTracingShaderGroupCreateInfoKHR chitShaderGroupInfo{};
 		chitShaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -95,7 +95,7 @@ namespace core {
 		chitShaderGroupInfo.closestHitShader = 2;
 		chitShaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
 		chitShaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
-		shaderGroups.push_back(chitShaderGroupInfo);
+		m_shaderGroups.push_back(chitShaderGroupInfo);
 
 		VkRayTracingShaderGroupCreateInfoKHR chitReflectShaderGroupInfo{};
 		chitReflectShaderGroupInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -104,30 +104,28 @@ namespace core {
 		chitReflectShaderGroupInfo.closestHitShader = 3;
 		chitReflectShaderGroupInfo.intersectionShader = VK_SHADER_UNUSED_KHR;
 		chitReflectShaderGroupInfo.generalShader = VK_SHADER_UNUSED_KHR;
-		//shaderGroups.push_back(chitReflectShaderGroupInfo);
+		//m_shaderGroups.push_back(chitReflectShaderGroupInfo);
 
 		// Create pipeline.
 		VkRayTracingPipelineCreateInfoKHR pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
 		pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
 		pipelineInfo.pStages = shaderStages.data();
-		pipelineInfo.groupCount = static_cast<uint32_t>(shaderGroups.size());
-		pipelineInfo.pGroups = shaderGroups.data();
+		pipelineInfo.groupCount = static_cast<uint32_t>(m_shaderGroups.size());
+		pipelineInfo.pGroups = m_shaderGroups.data();
 		pipelineInfo.maxPipelineRayRecursionDepth = 2; 
-		pipelineInfo.layout = layout;
+		pipelineInfo.layout = m_layout;
 		
-		if (vkCreateRayTracingPipelinesKHR(device, {}, {}, 1, &pipelineInfo, nullptr, (VkPipeline*)&pipeline) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create ray-tracing pipeline.");
-		}
+		VK_CHECK_MSG(vkCreateRayTracingPipelinesKHR(m_device, {}, {}, 1, &pipelineInfo, nullptr, &m_pipeline), "Failed to create ray-tracing pipeline.");
 
 		// Pipeline creation cleanup.
-		vkDestroyShaderModule(device, genShaderStageInfo.module, nullptr);
-		vkDestroyShaderModule(device, missShaderStageInfo.module, nullptr);
-		vkDestroyShaderModule(device, chitShaderStageInfo.module, nullptr);
-		vkDestroyShaderModule(device, chitReflectShaderStageInfo.module, nullptr);
+		vkDestroyShaderModule(m_device, genShaderStageInfo.module, nullptr);
+		vkDestroyShaderModule(m_device, missShaderStageInfo.module, nullptr);
+		vkDestroyShaderModule(m_device, chitShaderStageInfo.module, nullptr);
+		vkDestroyShaderModule(m_device, chitReflectShaderStageInfo.module, nullptr);
 	}
 
-	void RayTracingPipeline::createShaderBindingTable() {
+	void RayTracingPipeline::CreateShaderBindingTable() {
 		uint32_t missCount = 1;
 		uint32_t hitCount = 1;
 		uint32_t handleCount = 1 + missCount + hitCount;
@@ -135,31 +133,31 @@ namespace core {
 
 		// Align all group handles.
 		uint32_t handleSizeAligned = alignUp(handleSize, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupHandleAlignment);
-		sbt.rgenRegion.stride = alignUp(handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
-		sbt.rgenRegion.size = sbt.rgenRegion.stride; // Ray generation size must be equal to ray generation stride.
-		sbt.missRegion.stride = handleSizeAligned;
-		sbt.missRegion.size = alignUp(missCount * handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
-		sbt.hitRegion.stride = handleSizeAligned;
-		sbt.hitRegion.size = alignUp(hitCount * handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
+		m_sbt.rgenRegion.stride = alignUp(handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
+		m_sbt.rgenRegion.size = m_sbt.rgenRegion.stride; // Ray generation size must be equal to ray generation stride.
+		m_sbt.missRegion.stride = handleSizeAligned;
+		m_sbt.missRegion.size = alignUp(missCount * handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
+		m_sbt.hitRegion.stride = handleSizeAligned;
+		m_sbt.hitRegion.size = alignUp(hitCount * handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
 
 	    // Get the shader group handles.
 		uint32_t dataSize = handleCount * handleSize;
 		std::vector<uint8_t> handles(dataSize);
-		if (vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, handleCount, dataSize, handles.data()) != VK_SUCCESS) {
+		if (vkGetRayTracingShaderGroupHandlesKHR(m_device, m_pipeline, 0, handleCount, dataSize, handles.data()) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to get shader group handles.");
 		}
 
 		// Create SBT buffer.
-		VkDeviceSize sbtSize = sbt.rgenRegion.size + sbt.missRegion.size + sbt.hitRegion.size + sbt.callRegion.size;
+		VkDeviceSize sbtSize = m_sbt.rgenRegion.size + m_sbt.missRegion.size + m_sbt.hitRegion.size + m_sbt.callRegion.size;
 		VkBufferUsageFlags stbBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
-		ResourceAllocator::createBuffer(sbtSize, sbt.buffer, stbBufferUsage);
-		Debugger::setObjectName(sbt.buffer.buffer, "SBT");
+		ResourceAllocator::createBuffer(sbtSize, m_sbt.buffer, stbBufferUsage);
+		Debugger::setObjectName(m_sbt.buffer.buffer, "SBT");
 		
 		// Find the SBT addresses of each group.
-		VkDeviceAddress sbtAddress = sbt.buffer.getDeviceAddress();
-		sbt.rgenRegion.deviceAddress = sbtAddress;
-		sbt.missRegion.deviceAddress = sbtAddress + sbt.rgenRegion.size;
-		sbt.hitRegion.deviceAddress  = sbtAddress + sbt.rgenRegion.size + sbt.missRegion.size;
+		VkDeviceAddress sbtAddress = m_sbt.buffer.getDeviceAddress();
+		m_sbt.rgenRegion.deviceAddress = sbtAddress;
+		m_sbt.missRegion.deviceAddress = sbtAddress + m_sbt.rgenRegion.size;
+		m_sbt.hitRegion.deviceAddress  = sbtAddress + m_sbt.rgenRegion.size + m_sbt.missRegion.size;
 
 		// Helper to retrieve the handle data
 		auto getHandle = [&] (int i) { return handles.data() + i * handleSize; };
@@ -170,18 +168,18 @@ namespace core {
 
 		// Raygen
 		offset = 0;
-		ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
+		ResourceAllocator::mapDataToBuffer(m_sbt.buffer, handleSize, getHandle(handleIndex++), offset);
 		// Miss
-		offset = static_cast<uint32_t>(sbt.rgenRegion.size);
+		offset = static_cast<uint32_t>(m_sbt.rgenRegion.size);
 		for (uint32_t i = 0; i < missCount; i++) {
-			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
-			offset += static_cast<uint32_t>(sbt.missRegion.stride);
+			ResourceAllocator::mapDataToBuffer(m_sbt.buffer, handleSize, getHandle(handleIndex++), offset);
+			offset += static_cast<uint32_t>(m_sbt.missRegion.stride);
 		}
 		// Hit
-		offset = static_cast<uint32_t>(sbt.rgenRegion.size + sbt.missRegion.size);
+		offset = static_cast<uint32_t>(m_sbt.rgenRegion.size + m_sbt.missRegion.size);
 		for (uint32_t i = 0; i < hitCount; i++) {
-			ResourceAllocator::mapDataToBuffer(sbt.buffer, handleSize, getHandle(handleIndex++), offset);
-			offset += static_cast<uint32_t>(sbt.hitRegion.stride);
+			ResourceAllocator::mapDataToBuffer(m_sbt.buffer, handleSize, getHandle(handleIndex++), offset);
+			offset += static_cast<uint32_t>(m_sbt.hitRegion.stride);
 		}
 	}
 }

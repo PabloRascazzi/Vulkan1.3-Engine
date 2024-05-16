@@ -1,70 +1,51 @@
 #include <renderer/standard_renderer.h>
-#include <engine_globals.h>
 #include <engine_context.h>
-#include <pipeline/standard_pipeline.h>
 
 namespace core {
 
-    StandardRenderer::StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets) : 
-        Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain), globalDescSets(globalDescSets) {
-        
-        createDepthBuffer();
-        createRenderPass();
-        createFramebuffers();
-        createCommandBuffers();
-        createSyncObjects();
-        createDescriptorSets();
-        createPipeline(device);
-        initDescriptorSets();
+    StandardRenderer::StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<DescriptorSet*> globalDescSets) : 
+        Renderer(device, graphicsQueue, presentQueue, swapchain), m_globalDescSets(globalDescSets), m_depthImageFormat(VK_FORMAT_D32_SFLOAT) {
+    
+        CreateRenderPass();
+        CreateFramebuffers();
+        CreateDescriptorSets();
+        CreatePipeline();
     }
 
     StandardRenderer::~StandardRenderer() {
-        delete static_cast<StandardPipeline*>(this->pipeline);
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-            vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-            vkDestroyFence(device, inFlightFences[i], nullptr);
-        }
-        for (auto framebuffer : swapChainFramebuffers) {
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
-        }
-        vkDestroyRenderPass(device, renderPass, nullptr);
-        ResourceAllocator::destroyImageView(depthImageView);
-        ResourceAllocator::destroyImage(depthImage);
+        delete m_pipeline;
+        ResourceAllocator::destroyImageView(m_depthImageView);
+        ResourceAllocator::destroyImage(m_depthImage);
     }
 
-    void StandardRenderer::createDepthBuffer() {
-        // Select supported depth image format.
-        this->depthImageFormat = VK_FORMAT_D32_SFLOAT;
-
+    void StandardRenderer::CreateFramebuffers() {
         // Create depth image.
-        ResourceAllocator::createImage2D(swapChain.extent, depthImageFormat, 1, depthImage, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-        ResourceAllocator::createImageView2D(depthImage.image, depthImageView, depthImageFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-        EngineContext::transitionImageLayout(depthImage.image, depthImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-    }
+        ResourceAllocator::createImage2D(m_swapchain.extent, m_depthImageFormat, 1, m_depthImage, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+        ResourceAllocator::createImageView2D(m_depthImage.image, m_depthImageView, m_depthImageFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+        EngineContext::transitionImageLayout(m_depthImage.image, m_depthImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        
+        // Create framebuffers.
+        m_swapchainFramebuffers.resize(m_swapchain.imageViews.size());
 
-    void StandardRenderer::createFramebuffers() {
-        swapChainFramebuffers.resize(swapChain.imageViews.size());
-
-        for (size_t i = 0; i < swapChain.imageViews.size(); i++) {
-            std::array<VkImageView, 2> attachments = { swapChain.imageViews[i], depthImageView };
+        for (size_t i = 0; i < m_swapchain.imageViews.size(); i++) {
+            std::array<VkImageView, 2> attachments = { m_swapchain.imageViews[i], m_depthImageView };
 
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = renderPass;
+            framebufferInfo.renderPass = m_renderPass;
             framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
             framebufferInfo.pAttachments = attachments.data();
-            framebufferInfo.width = swapChain.extent.width;
-            framebufferInfo.height = swapChain.extent.height;
+            framebufferInfo.width = m_swapchain.extent.width;
+            framebufferInfo.height = m_swapchain.extent.height;
             framebufferInfo.layers = 1;
 
-            VK_CHECK(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]));
+            VK_CHECK(vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_swapchainFramebuffers[i]));
         }
     }
 
-    void StandardRenderer::createRenderPass() {
+    void StandardRenderer::CreateRenderPass() {
         VkAttachmentDescription colorAttachmentDesc{};
-        colorAttachmentDesc.format = swapChain.format;
+        colorAttachmentDesc.format = m_swapchain.format;
         colorAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
         colorAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -76,7 +57,7 @@ namespace core {
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
         VkAttachmentDescription depthAttachmentDesc{};
-        depthAttachmentDesc.format = depthImageFormat;
+        depthAttachmentDesc.format = m_depthImageFormat;
         depthAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
         depthAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         depthAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -113,60 +94,36 @@ namespace core {
         renderPassInfo.dependencyCount = 1;
         renderPassInfo.pDependencies = &dependency;
 
-        VK_CHECK(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
-    }
-
-    void StandardRenderer::createCommandBuffers() {
-        commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        EngineContext::createCommandBuffer(commandBuffers.data(), MAX_FRAMES_IN_FLIGHT);
-    }
-
-    void StandardRenderer::createSyncObjects() {
-        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-
-        VkSemaphoreCreateInfo semaphoreInfo{};
-        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-        VkFenceCreateInfo fenceInfo{};
-        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Start fence in signaled state.
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]));
-            VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]));
-            VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]));
-        }
+        VK_CHECK(vkCreateRenderPass(m_device, &renderPassInfo, nullptr, &m_renderPass));
     }
 
     //***************************************************************************************//
     //                              Descriptor Sets & Pipelines                              //
     //***************************************************************************************//
 
-    void StandardRenderer::createDescriptorSets() {
+    void StandardRenderer::CreateDescriptorSets() {
         // TODO
     }
 
-    void StandardRenderer::initDescriptorSets() {
-        // TODO
-    }
-
-    void StandardRenderer::updateDescriptorSets() {
-        // TODO
-    }
-
-    void StandardRenderer::createPipeline(VkDevice device) {
+    void StandardRenderer::CreatePipeline() {
         std::vector<VkDescriptorSetLayout> layouts;
-        for (const auto& descSet : globalDescSets) layouts.push_back(descSet->getSetLayout());
-        pipeline = new StandardPipeline(device, "shader", layouts, renderPass, swapChain.extent);
+        for (const auto& descSet : m_globalDescSets) layouts.push_back(descSet->getSetLayout());
+        m_pipeline = new StandardPipeline(m_device, "shader", layouts, m_renderPass, m_swapchain.extent);
+    }
+
+    void StandardRenderer::InitDescriptorSets(Scene& scene) {
+        // TODO
+    }
+
+    void StandardRenderer::UpdateDescriptorSets(Scene& scene) {
+        // TODO
     }
 
     //***************************************************************************************//
     //                                      Renderering                                      //
     //***************************************************************************************//
 
-    void StandardRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene) {
+    void StandardRenderer::RecordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -180,37 +137,37 @@ namespace core {
         // Begin render pass
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassInfo.renderPass = renderPass;
-        renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+        renderPassInfo.renderPass = m_renderPass;
+        renderPassInfo.framebuffer = m_swapchainFramebuffers[imageIndex];
         renderPassInfo.renderArea.offset = { 0,0 };
-        renderPassInfo.renderArea.extent = swapChain.extent;
+        renderPassInfo.renderArea.extent = m_swapchain.extent;
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
 
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         // Bind pipeline
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline->getHandle());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->GetHandle());
 
         // Set Viewport and Scissor
         VkViewport viewport{};
         viewport.x = 0.0f;
         viewport.y = 0.0f;
-        viewport.width = static_cast<float>(swapChain.extent.width);
-        viewport.height = static_cast<float>(swapChain.extent.height);
+        viewport.width = static_cast<float>(m_swapchain.extent.width);
+        viewport.height = static_cast<float>(m_swapchain.extent.height);
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
         VkRect2D scissor{};
         scissor.offset = { 0,0 };
-        scissor.extent = swapChain.extent;
+        scissor.extent = m_swapchain.extent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets = { this->globalDescSets[0]->getHandle(currentFrame), this->globalDescSets[1]->getHandle(0) };
+        std::vector<VkDescriptorSet> descSets = { m_globalDescSets[0]->getHandle(currentFrame), m_globalDescSets[1]->getHandle(0) };
         if (descSets.size() > 0) {
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline->getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->GetLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
         }
 
         for (const auto& object : scene.getObjects()) {
@@ -226,7 +183,7 @@ namespace core {
                 constant.view = scene.getMainCamera().getViewMatrix();
                 constant.proj = scene.getMainCamera().getProjectionMatrix();
                 constant.materialAddress = object.materials.at(i)->getBuffer().getDeviceAddress();
-                vkCmdPushConstants(commandBuffer, this->pipeline->getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
+                vkCmdPushConstants(commandBuffer, m_pipeline->GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
 
                 // Bind index buffer
                 vkCmdBindIndexBuffer(commandBuffer, object.mesh->getSubmesh(i).getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -240,55 +197,5 @@ namespace core {
         vkCmdEndRenderPass(commandBuffer);
 
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
-    }
-
-    void StandardRenderer::render(const uint32_t currentFrame, Scene& scene) {
-        // Update descriptor sets.
-        updateDescriptorSets();
-
-        // Wait until previous frame has finished.
-        VK_CHECK(vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
-        VK_CHECK(vkResetFences(device, 1, &inFlightFences[currentFrame]));
-
-        // Acquire next image from swap chain.
-        uint32_t imageIndex;
-        VK_CHECK(vkAcquireNextImageKHR(device, swapChain.handle, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex));
-
-        // Reset command buffer.
-        VK_CHECK(vkResetCommandBuffer(commandBuffers[currentFrame], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
-
-        // Record command buffer.
-        recordCommandBuffer(commandBuffers[currentFrame], currentFrame, imageIndex, scene);
-
-        // Submit command buffer.
-        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-        VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = waitSemaphores;
-        submitInfo.pWaitDstStageMask = waitStages;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = signalSemaphores;
-
-        VK_CHECK_MSG(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit draw rasterized command buffer.");
-
-        // Presentation.
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
-        presentInfo.swapchainCount = 1;
-        VkSwapchainKHR swapChains[] = { swapChain.handle };
-        presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &imageIndex;
-        presentInfo.pResults = nullptr;
-
-        VK_CHECK(vkQueuePresentKHR(presentQueue, &presentInfo));
-
     }
 }

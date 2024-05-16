@@ -18,22 +18,22 @@ namespace core {
 		Pipeline(VkDevice device, const PipelineType& type);
 		~Pipeline();
 
-		VkPipeline getHandle() { return pipeline; }
-		VkPipelineLayout getLayout() { return layout; }
-		PipelineType getType() { return type; }
+		VkPipeline GetHandle() { return m_pipeline; }
+		VkPipelineLayout GetLayout() { return m_layout; }
+		PipelineType GetType() { return m_type; }
 
 	private:
-		PipelineType type;
+		PipelineType m_type;
 
 	protected:
-		VkDevice device;
-		VkPipeline pipeline;
-		VkPipelineLayout layout;
+		VkDevice m_device;
+		VkPipeline m_pipeline;
+		VkPipelineLayout m_layout;
 
-		virtual void createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) = 0;
-		virtual void createPipeline() = 0;
+		virtual void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts) = 0;
+		virtual void CreatePipeline() = 0;
 
-		VkShaderModule createShaderModule(const std::string& filename);
+		VkShaderModule CreateShaderModule(const std::string& filename);
 
 	};
 }

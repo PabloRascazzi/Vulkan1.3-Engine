@@ -39,16 +39,16 @@ namespace core {
 		RayTracingPipeline(VkDevice device, const std::vector<VkDescriptorSetLayout>& descSetLayouts);
 		~RayTracingPipeline();
 
-		std::vector<VkRayTracingShaderGroupCreateInfoKHR>& getShaderGroups() { return shaderGroups; }
-		SBTWrapper& getSBT() { return sbt; }
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR>& GetShaderGroups() { return m_shaderGroups; }
+		SBTWrapper& GetSBT() { return m_sbt; }
 
 	private:
-		std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
-		SBTWrapper sbt;
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> m_shaderGroups;
+		SBTWrapper m_sbt;
 
-		virtual void createPipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts);
-		virtual void createPipeline();
-		void createShaderBindingTable();
+		virtual void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts);
+		virtual void CreatePipeline();
+		void CreateShaderBindingTable();
 
 	};
 }
