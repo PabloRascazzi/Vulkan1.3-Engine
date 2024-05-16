@@ -11,10 +11,9 @@ namespace core {
 	class Renderer {
 	public:
 		Renderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue);
-		~Renderer();
+		~Renderer() = default;
 
-		virtual void cleanup() = 0;
-		// TODO - virtual void render(Scene& scene) = 0;
+		virtual void render(const uint32_t currentFrame, Scene& scene) = 0;
 
 	protected:
 		VkDevice device;

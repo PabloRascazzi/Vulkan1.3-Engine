@@ -5,8 +5,9 @@
 
 namespace core {
 
-    StandardRenderer::StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets) : Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain) {
-        this->globalDescSets = globalDescSets;
+    StandardRenderer::StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets) : 
+        Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain), globalDescSets(globalDescSets) {
+        
         createDepthBuffer();
         createRenderPass();
         createFramebuffers();
@@ -18,10 +19,6 @@ namespace core {
     }
 
     StandardRenderer::~StandardRenderer() {
-        this->cleanup();
-    }
-
-    void StandardRenderer::cleanup() {
         delete static_cast<StandardPipeline*>(this->pipeline);
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);

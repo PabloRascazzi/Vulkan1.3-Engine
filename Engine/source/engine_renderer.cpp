@@ -3,6 +3,7 @@
 #include <SDL2/SDL_vulkan.h>
 #include <renderer/standard_renderer.h>
 #include <renderer/pathtraced_renderer.h>
+#include <renderer/gaussian_renderer.h>
 #include <pipeline/standard_pipeline.h>
 #include <pipeline/raytracing_pipeline.h>
 #include <pipeline/post_pipeline.h>
@@ -28,6 +29,7 @@ namespace core {
     Renderer* EngineRenderer::standardRenderer;
     Renderer* EngineRenderer::raytracedRenderer;
     Renderer* EngineRenderer::pathtracedRenderer;
+    Renderer* EngineRenderer::gaussianRenderer;
 
 	void EngineRenderer::setup(Scene* scene) {
         EngineRenderer::scene = scene;
@@ -39,8 +41,9 @@ namespace core {
 
     void EngineRenderer::cleanup() {
         // Cleanup renderers.
-        standardRenderer->cleanup();
-        pathtracedRenderer->cleanup();
+        delete static_cast<StandardRenderer*>(standardRenderer);
+        delete static_cast<PathTracedRenderer*>(pathtracedRenderer);
+        delete static_cast<GaussianRenderer*>(gaussianRenderer);
         // Cleanup descriptor buffers
         ResourceAllocator::destroyBuffer(cameraDescBuffer);
         // Cleanup descriptor sets.
@@ -272,17 +275,19 @@ namespace core {
     void EngineRenderer::createRenderers() {
         standardRenderer = new StandardRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ cameraDescSet, texturesDescSet });
         pathtracedRenderer = new PathTracedRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ cameraDescSet, texturesDescSet });
+        gaussianRenderer = new GaussianRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ cameraDescSet });
     }
 
-    void EngineRenderer::render(const bool raytrace) {
+    void EngineRenderer::render(const uint8_t rendermode) {
         // Update all descriptors.
         updateDescriptorSets();
 
         // Select renderer and render scene.
-        if (raytrace) {
-            static_cast<PathTracedRenderer*>(pathtracedRenderer)->render(currentSwapchainIndex, *scene);
-        } else {
-            static_cast<StandardRenderer*>(standardRenderer)->render(currentSwapchainIndex, *scene);
+        switch (rendermode) {
+            case 0: static_cast<StandardRenderer*>(standardRenderer)->render(currentSwapchainIndex, *scene); break;
+            case 1: static_cast<PathTracedRenderer*>(pathtracedRenderer)->render(currentSwapchainIndex, *scene); break;
+            case 2: static_cast<GaussianRenderer*>(gaussianRenderer)->render(currentSwapchainIndex, *scene); break;
+            default: break;
         }
 
         // Set next swapchain frame index.

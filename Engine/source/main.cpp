@@ -76,7 +76,7 @@ int main() {
     EngineRenderer::setup(scene);
 
     // Main loop
-    bool raytrace = true;
+    uint8_t rendermode = true;
     while (EngineContext::update()) {
         if (Input::getKeyDown(INPUT_KEY_ESCAPE)) {
             EngineContext::exit();
@@ -86,16 +86,18 @@ int main() {
         
         // Toggle raytracing.
         if (Input::getKey(INPUT_KEY_1)) {
-            raytrace = true;
+            rendermode = 0;
         } else if (Input::getKey(INPUT_KEY_2)) {
-            raytrace = false;
+            rendermode = 1;
+        }else if (Input::getKey(INPUT_KEY_3)) {
+            rendermode = 2;
         }
 
         // Update scene.
         scene->update();
 
         // Render scene.
-        EngineRenderer::render(raytrace);
+        EngineRenderer::render(rendermode);
 
         // Reset Inputs.
         Input::reset();

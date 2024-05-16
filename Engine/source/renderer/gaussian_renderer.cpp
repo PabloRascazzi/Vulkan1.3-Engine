@@ -1,11 +1,11 @@
-#include <renderer/pathtraced_renderer.h>
+#include <renderer/gaussian_renderer.h>
 #include <engine_context.h>
 
 namespace core {
 
-    PathTracedRenderer::PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets) : 
-        Renderer(device, graphicsQueue, presentQueue), swapChain(swapChain), globalDescSets(globalDescSets), firstRender(true) {
-        
+	GaussianRenderer::GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<DescriptorSet*>& globalDescSets) :
+		Renderer(device, computeQueue, presentQueue), swapChain(swapChain), globalDescSets(globalDescSets), firstRender(true) {
+    
         createRenderPass();
         createFramebuffers();
         createCommandBuffers();
@@ -14,15 +14,15 @@ namespace core {
         createPipeline(device);
     }
 
-    PathTracedRenderer::~PathTracedRenderer() {
+	GaussianRenderer::~GaussianRenderer() {
         // Cleanup pipelines.
-        delete static_cast<RayTracingPipeline*>(this->rtPipeline);
-        delete static_cast<PostPipeline*>(this->postPipeline);
+        delete gsPipeline;
+        delete postPipeline;
         // Cleanup descriptor buffers.
-        for (auto& texture : rtDescTextures)
+        for (auto& texture : gsDescTextures)
             delete texture;
         // Cleanup descriptor sets.
-        delete rtDescSet;
+        delete gsDescSet;
         delete postDescSet;
         // Cleanup sync objects.
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -34,9 +34,9 @@ namespace core {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
         vkDestroyRenderPass(device, renderPass, nullptr);
-    }
+	}
 
-    void PathTracedRenderer::createRenderPass() {
+    void GaussianRenderer::createRenderPass() {
         VkAttachmentDescription colorAttachmentDesc{};
         colorAttachmentDesc.format = swapChain.format;
         colorAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -76,7 +76,7 @@ namespace core {
         VK_CHECK(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
     }
 
-    void PathTracedRenderer::createFramebuffers() {
+    void GaussianRenderer::createFramebuffers() {
         swapChainFramebuffers.resize(swapChain.imageViews.size());
 
         for (size_t i = 0; i < swapChain.imageViews.size(); i++) {
@@ -95,12 +95,12 @@ namespace core {
         }
     }
 
-    void PathTracedRenderer::createCommandBuffers() {
+    void GaussianRenderer::createCommandBuffers() {
         commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
         EngineContext::createCommandBuffer(commandBuffers.data(), MAX_FRAMES_IN_FLIGHT);
     }
 
-    void PathTracedRenderer::createSyncObjects() {
+    void GaussianRenderer::createSyncObjects() {
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -123,75 +123,66 @@ namespace core {
     //                              Descriptor Sets & Pipelines                              //
     //***************************************************************************************//
 
-    void PathTracedRenderer::createDescriptorSets() {
-        rtDescSet = new DescriptorSet();
-        // Bind top-level acceleration structure descriptor.
-        rtDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+    void GaussianRenderer::createDescriptorSets() {
+        gsDescSet = new DescriptorSet();
         // Bind render pass output image descriptor.
-        rtDescSet->addDescriptor(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
-        // Bind object descriptions buffer descriptor.
-        rtDescSet->addDescriptor(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+        gsDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT);
+        // Bind preprocessed gaussian geometry buffer descriptor.
+        gsDescSet->addDescriptor(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT);
         // Create descriptor set.
-        rtDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
-        rtDescSet->setName("RayTracing - RayTrace");
+        gsDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
+        gsDescSet->setName("Gaussian Splatting - Rasterize");
 
         postDescSet = new DescriptorSet();
         // Bind render pass input image descriptor.
         postDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         // Create descriptor set.
         postDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
-        postDescSet->setName("RayTracing - Post");
+        postDescSet->setName("Gaussian Splatting - Post");
     }
 
-    void PathTracedRenderer::initDescriptorSets(Scene& scene) {
+    void GaussianRenderer::initDescriptorSets(Scene& scene) {
         // Initialize descriptors for every frames in flight.
         VkDescriptorImageInfo imageDescInfos[MAX_FRAMES_IN_FLIGHT];
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            // Upload TLAS descriptor.
-            VkWriteDescriptorSetAccelerationStructureKHR tlasDescInfo{};
-            tlasDescInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-            tlasDescInfo.accelerationStructureCount = 1;
-            tlasDescInfo.pAccelerationStructures = &scene.getTLAS().handle;
-            rtDescSet->writeAccelerationStructureKHR(i, 0, tlasDescInfo);
-
             // Upload ray-tracing render pass output image uniform.
             Texture* outTexture = new Texture(swapChain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
             EngineContext::transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-            rtDescTextures.push_back(outTexture);
+            gsDescTextures.push_back(outTexture);
 
-            imageDescInfos[i].sampler = rtDescTextures[i]->getSampler();
-            imageDescInfos[i].imageView = rtDescTextures[i]->getImageView();
+            imageDescInfos[i].sampler = gsDescTextures[i]->getSampler();
+            imageDescInfos[i].imageView = gsDescTextures[i]->getImageView();
             imageDescInfos[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-            rtDescSet->writeImage(i, 1, imageDescInfos[i]);
+            gsDescSet->writeImage(i, 0, imageDescInfos[i]);
             postDescSet->writeImage(i, 0, imageDescInfos[i]);
 
-            // Upload objects description buffer.
-            VkDescriptorBufferInfo objDescInfo{};
-            objDescInfo.buffer = scene.getObjDescriptions().buffer;
-            objDescInfo.offset = 0;
-            objDescInfo.range = VK_WHOLE_SIZE;
-            rtDescSet->writeBuffer(i, 2, objDescInfo);
+            // Upload preprocessed gaussian geometry buffer.
+            // TODO - VkDescriptorBufferInfo geomDescInfo{};
+            // TODO - geomDescInfo.buffer = scene.getObjDescriptions().buffer;
+            // TODO - geomDescInfo.offset = 0;
+            // TODO - geomDescInfo.range = VK_WHOLE_SIZE;
+            // TODO - gsDescSet->writeBuffer(i, 2, geomDescInfo);
         }
         // Update descriptor sets.
-        rtDescSet->update();
+        gsDescSet->update();
         postDescSet->update();
     }
 
-    void PathTracedRenderer::updateDescriptorSets() {
+    void GaussianRenderer::updateDescriptorSets() {
         // TODO
     }
 
-    void PathTracedRenderer::createPipeline(VkDevice device) {
-        // Create list of descriptor set layouts for raytracing pipeline.
-        std::vector<VkDescriptorSetLayout> rtLayouts;
-        for (const auto& descSet : globalDescSets) rtLayouts.push_back(descSet->getSetLayout());
-        rtLayouts.push_back(this->rtDescSet->getSetLayout());
+    void GaussianRenderer::createPipeline(VkDevice device) {
+        // Create list of descriptor set layouts for gaussian rasterization compute pipeline.
+        std::vector<VkDescriptorSetLayout> gsLayouts;
+        for (const auto& descSet : globalDescSets) gsLayouts.push_back(descSet->getSetLayout());
+        gsLayouts.push_back(this->gsDescSet->getSetLayout());
 
         // Create list of descriptor set layouts for post pipeline.
         std::vector<VkDescriptorSetLayout> postLayouts{ this->postDescSet->getSetLayout() };
 
         // Create pipelines.
-        rtPipeline = new RayTracingPipeline(device, rtLayouts);
+        gsPipeline = new ComputePipeline(device, "gaussian_rasterize", gsLayouts);
         postPipeline = new PostPipeline(device, "postShader", postLayouts, this->renderPass, this->swapChain.extent);
     }
 
@@ -199,29 +190,23 @@ namespace core {
     //                                       Rendering                                       //
     //***************************************************************************************//
 
-    void PathTracedRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene) {
+    void GaussianRenderer::recordCommandBuffer(const VkCommandBuffer& commandBuffer, uint32_t currentFrame, uint32_t imageIndex, Scene& scene) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
         VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
         // Bind pipeline.
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->rtPipeline->getHandle());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, this->gsPipeline->getHandle());
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets{ this->globalDescSets[0]->getHandle(currentFrame), this->globalDescSets[1]->getHandle(0), this->rtDescSet->getHandle(currentFrame) };
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->rtPipeline->getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+        std::vector<VkDescriptorSet> descSets{ this->globalDescSets[0]->getHandle(currentFrame), this->gsDescSet->getHandle(currentFrame) };
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, this->gsPipeline->getLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
 
-        // Upload push constants.
-        RayTracingPushConstant constant;
-        constant.clearColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-        vkCmdPushConstants(commandBuffer, this->rtPipeline->getLayout(), constant.getShaderStageFlags(), 0, constant.getSize(), &constant);
-
-        // Draw ray-traced.
-        SBTWrapper sbt = static_cast<RayTracingPipeline*>(this->rtPipeline)->getSBT();
+        // Compute Gaussian Rasterization
         uint32_t width = swapChain.extent.width;
         uint32_t height = swapChain.extent.height;
-        vkCmdTraceRaysKHR(commandBuffer, &sbt.rgenRegion, &sbt.missRegion, &sbt.hitRegion, &sbt.callRegion, width, height, 1);
+        vkCmdDispatch(commandBuffer, width, height, 1);
 
         // Begin render pass
         VkRenderPassBeginInfo renderPassInfo{};
@@ -268,7 +253,7 @@ namespace core {
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
     }
 
-    void PathTracedRenderer::render(const uint32_t currentFrame, Scene& scene) {
+    void GaussianRenderer::render(const uint32_t currentFrame, Scene& scene) {
         // Initialize descriptor sets on first render.
         if (firstRender) {
             initDescriptorSets(scene);
@@ -307,7 +292,7 @@ namespace core {
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        VK_CHECK_MSG(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit draw ray-traced command buffer.");
+        VK_CHECK_MSG(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]), "Failed to submit draw gaussians command buffer.");
 
         // Presentation.
         VkPresentInfoKHR presentInfo{};

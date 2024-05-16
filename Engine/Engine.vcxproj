@@ -154,6 +154,7 @@
     <ClInclude Include="include\pipeline\post_pipeline.h" />
     <ClInclude Include="include\pipeline\raytracing_pipeline.h" />
     <ClInclude Include="include\pipeline\standard_pipeline.h" />
+    <ClInclude Include="include\renderer\gaussian_renderer.h" />
     <ClInclude Include="include\renderer\pathtraced_renderer.h" />
     <ClInclude Include="include\renderer\renderer.h" />
     <ClInclude Include="include\renderer\standard_renderer.h" />
@@ -165,6 +166,7 @@
     <ClInclude Include="include\window.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="resource\shaders\GLSL\gaussian_rasterize.comp" />
     <None Include="resource\shaders\GLSL\postShader.frag" />
     <None Include="resource\shaders\GLSL\postShader.vert" />
     <None Include="resource\shaders\GLSL\raytrace.rchit" />
@@ -190,6 +192,7 @@
     <ClCompile Include="source\pipeline\post_pipeline.cpp" />
     <ClCompile Include="source\pipeline\raytracing_pipeline.cpp" />
     <ClCompile Include="source\pipeline\standard_pipeline.cpp" />
+    <ClCompile Include="source\renderer\gaussian_renderer.cpp" />
     <ClCompile Include="source\renderer\pathtraced_renderer.cpp" />
     <ClCompile Include="source\renderer\renderer.cpp" />
     <ClCompile Include="source\renderer\standard_renderer.cpp" />

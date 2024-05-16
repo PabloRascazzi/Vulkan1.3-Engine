@@ -243,9 +243,14 @@ namespace core {
         }
 
         // Setup physical device features to enable.
+        VkPhysicalDeviceVulkan13Features vulkan13Feature{};
+        vulkan13Feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+        vulkan13Feature.maintenance4 = VK_TRUE;
+
         VkPhysicalDevice16BitStorageFeaturesKHR shader16bitFeature{};
         shader16bitFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
         shader16bitFeature.storageBuffer16BitAccess = VK_TRUE;
+        shader16bitFeature.pNext = &vulkan13Feature;
 
         VkPhysicalDeviceDescriptorIndexingFeatures descIndexFeature{};
         descIndexFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;

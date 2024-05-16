@@ -2,7 +2,7 @@
 #include <engine_renderer.h>
 #include <renderer/renderer.h>
 #include <pipeline/pipeline.h>
-#include <pipeline/raytracing_pipeline.h>
+#include <pipeline/compute_pipeline.h>
 #include <pipeline/post_pipeline.h>
 #include <resource_allocator.h>
 #include <scene.h>
@@ -12,10 +12,10 @@
 
 namespace core {
 
-	class PathTracedRenderer : public Renderer {
+	class GaussianRenderer : public Renderer {
 	public:
-		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets);
-		~PathTracedRenderer();
+		GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<DescriptorSet*>& globalDescSets);
+		~GaussianRenderer();
 
 		virtual void render(const uint32_t currentFrame, Scene& scene);
 
@@ -32,13 +32,13 @@ namespace core {
 		std::vector<VkFence> inFlightFences;
 
 		// Pipelines.
-		Pipeline* rtPipeline;
-		Pipeline* postPipeline;
+		ComputePipeline* gsPipeline;
+		PostPipeline* postPipeline;
 		// Descriptor buffers.
-		std::vector<Texture*> rtDescTextures;
+		std::vector<Texture*> gsDescTextures;
 		// Descriptor Sets.
 		std::vector<DescriptorSet*> globalDescSets;
-		DescriptorSet* rtDescSet;
+		DescriptorSet* gsDescSet;
 		DescriptorSet* postDescSet;
 
 		bool firstRender;

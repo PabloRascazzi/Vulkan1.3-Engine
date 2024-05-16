@@ -28,7 +28,7 @@ namespace core {
 	public:
 		static void setup(Scene* scene);
 		static void cleanup();
-		static void render(const bool raytrace);
+		static void render(const uint8_t rendermode);
 		static void renderToImage(Image& image); // TODO - render to an image instead of a swapchain framebuffer.
 
 		static Swapchain& getSwapchain() { return swapchain; }
@@ -56,6 +56,7 @@ namespace core {
 		static Renderer* standardRenderer;
 		static Renderer* raytracedRenderer;
 		static Renderer* pathtracedRenderer;
+		static Renderer* gaussianRenderer;
 
 		static void createSwapChain();
 		static void createRenderers();

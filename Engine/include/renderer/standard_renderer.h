@@ -15,7 +15,6 @@ namespace core {
 		StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, std::vector<DescriptorSet*> globalDescSets);
 		~StandardRenderer();
 
-		virtual void cleanup();
 		virtual void render(const uint32_t currentFrame, Scene& scene);
 
 		VkRenderPass& getRenderPass() { return renderPass; }

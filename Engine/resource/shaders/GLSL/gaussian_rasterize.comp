@@ -1,0 +1,16 @@
+#version 460
+
+layout(binding = 0, set = 0) uniform CameraUniforms {
+    mat4 viewProj;    // view * projection
+    mat4 viewInverse; // inverse view matrix
+    mat4 projInverse; // inverse projection matrix
+} camera;
+layout(binding = 0, set = 1, rgba32f) uniform image2D image;
+// TODO - layout(binding = 1, set = 1) uniform GeometryBuffer geom;
+
+void main() {
+    const ivec2 pixel_coord = ivec2(gl_WorkGroupID.xy);
+
+    vec3 outColor = vec3(1.0, 0.0, 0.0);
+    imageStore(image, pixel_coord, vec4(outColor, 1.0));
+}
