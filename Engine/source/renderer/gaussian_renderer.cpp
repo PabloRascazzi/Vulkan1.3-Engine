@@ -115,7 +115,7 @@ namespace core {
         std::vector<VkDescriptorSetLayout> postLayouts{ m_postDescSet->getSetLayout() };
 
         // Create pipelines.
-        m_gsPipeline = new ComputePipeline(m_device, "gaussian_rasterize", gsLayouts);
+        m_gsPipeline = new ComputePipeline(m_device, "gaussian_rasterize", gsLayouts, sizeof(GaussianPushConstant));
         m_postPipeline = new PostPipeline(m_device, "postShader", postLayouts, m_renderPass, m_swapchain.extent);
     }
 
@@ -167,10 +167,16 @@ namespace core {
         std::vector<VkDescriptorSet> descSets{ m_globalDescSets[0]->getHandle(currentFrame), m_gsDescSet->getHandle(currentFrame) };
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_gsPipeline->GetLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
 
+        // Upload push constants
+        GaussianPushConstant constant;
+        constant.resolution = glm::uvec2(m_swapchain.extent.width, m_swapchain.extent.height);
+        vkCmdPushConstants(commandBuffer, m_gsPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, constant.getSize(), &constant);
+
         // Compute Gaussian Rasterization
-        uint32_t width = m_swapchain.extent.width;
-        uint32_t height = m_swapchain.extent.height;
-        vkCmdDispatch(commandBuffer, width, height, 1);
+        const uint32_t BLOCK_X = 32, BLOCK_Y = 32;
+        uint32_t workgroupX = (m_swapchain.extent.width + BLOCK_X) / BLOCK_X;
+        uint32_t workgroupY = (m_swapchain.extent.height + BLOCK_Y) / BLOCK_Y;
+        vkCmdDispatch(commandBuffer, workgroupX, workgroupY, 1);
 
         // Begin render pass
         VkRenderPassBeginInfo renderPassInfo{};

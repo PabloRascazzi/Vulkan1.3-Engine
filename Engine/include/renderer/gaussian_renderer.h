@@ -10,6 +10,14 @@
 
 namespace core {
 
+	struct GaussianPushConstant {
+		glm::uvec2 resolution;
+
+		static uint32_t getSize() {
+			return sizeof(GaussianPushConstant);
+		}
+	};
+
 	class GaussianRenderer : public Renderer {
 	public:
 		GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<DescriptorSet*>& globalDescSets);

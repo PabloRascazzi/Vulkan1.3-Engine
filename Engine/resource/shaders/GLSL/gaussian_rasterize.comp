@@ -1,4 +1,9 @@
 #version 460
+#extension GL_KHR_vulkan_glsl : enable
+
+layout(push_constant) uniform constants {
+    uvec2 resolution;
+} PushConstants;
 
 layout(binding = 0, set = 0) uniform CameraUniforms {
     mat4 viewProj;    // view * projection
@@ -8,9 +13,25 @@ layout(binding = 0, set = 0) uniform CameraUniforms {
 layout(binding = 0, set = 1, rgba32f) uniform image2D image;
 // TODO - layout(binding = 1, set = 1) uniform GeometryBuffer geom;
 
-void main() {
-    const ivec2 pixel_coord = ivec2(gl_WorkGroupID.xy);
+const int BLOCK_X = 32, BLOCK_Y = 32;
+layout (local_size_x = BLOCK_X, local_size_y = BLOCK_Y, local_size_z = 1) in;
 
-    vec3 outColor = vec3(1.0, 0.0, 0.0);
-    imageStore(image, pixel_coord, vec4(outColor, 1.0));
+void main() {
+    const uvec3 group = gl_WorkGroupID;
+    const uvec3 thread = gl_LocalInvocationID;
+
+    // Get min and max pixel range of current tile.
+    const uvec2 pix_min = uvec2(group.x * BLOCK_X, group.y * BLOCK_Y);
+    const uvec2 pix_max = uvec2(min(pix_min.x + BLOCK_X, PushConstants.resolution.x), min(pix_min.y + BLOCK_Y, PushConstants.resolution.y));
+    // Get current pixel index.
+    const uvec2 pix = uvec2(pix_min.x + thread.x, pix_min.y + thread.y);
+
+    // Check if current pixel is inside render surface bounds.
+    bool inside = pix.x < PushConstants.resolution.x && pix.y < PushConstants.resolution.y;
+
+    if(inside) {
+        vec3 outColor = vec3(pix.x/float(PushConstants.resolution.x), pix.y/float(PushConstants.resolution.y), 0.0);
+        if(pix.x == pix_max.x-1 || pix.y == pix_max.y-1) outColor = vec3(0,0,0);
+        imageStore(image, ivec2(pix), vec4(outColor, 1.0));
+    }
 }
