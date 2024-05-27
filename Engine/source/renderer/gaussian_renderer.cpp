@@ -1,5 +1,6 @@
 #include <renderer/gaussian_renderer.h>
 #include <engine_context.h>
+#include <../resource/shaders/GLSL/gaussian_common.h>
 
 namespace core {
 
@@ -14,7 +15,8 @@ namespace core {
 
 	GaussianRenderer::~GaussianRenderer() {
         // Cleanup pipelines.
-        delete m_gsPipeline;
+        delete m_preprocessPipeline;
+        delete m_rasterizePipeline;
         delete m_postPipeline;
         // Cleanup descriptor buffers.
         for (auto& texture : m_gsDescTextures)
@@ -115,7 +117,8 @@ namespace core {
         std::vector<VkDescriptorSetLayout> postLayouts{ m_postDescSet->getSetLayout() };
 
         // Create pipelines.
-        m_gsPipeline = new ComputePipeline(m_device, "gaussian_rasterize", gsLayouts, sizeof(GaussianPushConstant));
+        m_rasterizePipeline = new ComputePipeline(m_device, "gaussian_preprocess", gsLayouts, sizeof(GaussianPreprocessPushConstant));
+        m_rasterizePipeline = new ComputePipeline(m_device, "gaussian_rasterize", gsLayouts, sizeof(GaussianRasterizePushConstant));
         m_postPipeline = new PostPipeline(m_device, "postShader", postLayouts, m_renderPass, m_swapchain.extent);
     }
 
@@ -161,22 +164,38 @@ namespace core {
         VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
         // Bind pipeline.
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_gsPipeline->GetHandle());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_preprocessPipeline->GetHandle());
+
+        // Bind descriptor sets.
+        std::vector<VkDescriptorSet> descSets{ m_globalDescSets[0]->getHandle(currentFrame) };
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_preprocessPipeline->GetLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+
+        // Upload push constants
+        GaussianPreprocessPushConstant preprocessConstant;
+        preprocessConstant.geomAddress = 0; // TODO
+        preprocessConstant.keysAddress = 0; // TODO
+        vkCmdPushConstants(commandBuffer, m_preprocessPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, preprocessConstant.getSize(), &preprocessConstant);
+
+        // Compute Gaussian Preprocessing
+        const uint32_t num_gaussians = 0; // TODO
+        vkCmdDispatch(commandBuffer, (num_gaussians + BLOCK_SIZE) / BLOCK_SIZE, 1, 1);
+
+        // Bind pipeline.
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_rasterizePipeline->GetHandle());
 
         // Bind descriptor sets.
         std::vector<VkDescriptorSet> descSets{ m_globalDescSets[0]->getHandle(currentFrame), m_gsDescSet->getHandle(currentFrame) };
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_gsPipeline->GetLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_rasterizePipeline->GetLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
 
         // Upload push constants
-        GaussianPushConstant constant;
-        constant.resolution = glm::uvec2(m_swapchain.extent.width, m_swapchain.extent.height);
-        vkCmdPushConstants(commandBuffer, m_gsPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, constant.getSize(), &constant);
+        GaussianRasterizePushConstant rasterizeConstant;
+        rasterizeConstant.resolution = glm::uvec2(m_swapchain.extent.width, m_swapchain.extent.height);
+        rasterizeConstant.geomAddress = 0; // TODO
+        rasterizeConstant.keysAddress = 0; // TODO
+        vkCmdPushConstants(commandBuffer, m_rasterizePipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, rasterizeConstant.getSize(), &rasterizeConstant);
 
         // Compute Gaussian Rasterization
-        const uint32_t BLOCK_X = 32, BLOCK_Y = 32;
-        uint32_t workgroupX = (m_swapchain.extent.width + BLOCK_X) / BLOCK_X;
-        uint32_t workgroupY = (m_swapchain.extent.height + BLOCK_Y) / BLOCK_Y;
-        vkCmdDispatch(commandBuffer, workgroupX, workgroupY, 1);
+        vkCmdDispatch(commandBuffer, (m_swapchain.extent.width + BLOCK_X) / BLOCK_X, (m_swapchain.extent.height + BLOCK_Y) / BLOCK_Y, 1);
 
         // Begin render pass
         VkRenderPassBeginInfo renderPassInfo{};

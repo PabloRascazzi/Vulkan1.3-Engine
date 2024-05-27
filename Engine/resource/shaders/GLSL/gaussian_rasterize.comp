@@ -1,26 +1,34 @@
 #version 460
 #extension GL_KHR_vulkan_glsl : enable
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
+
+#include "gaussian_common.h"
 
 layout(push_constant) uniform constants {
     uvec2 resolution;
+    uint64_t geomAddress;
+    uint64_t keysAddress;
 } PushConstants;
 
 layout(binding = 0, set = 1, rgba32f) uniform image2D image;
-// TODO - layout(binding = 1, set = 1) uniform GeometryBuffer geom;
+layout(buffer_reference, scalar) readonly buffer Geometry { uint size; Gaussian data[]; };
+layout(buffer_reference, scalar) readonly buffer KeyList { uint size; uint id[]; };
 
-const int BLOCK_X = 32, BLOCK_Y = 32;
-const int BLOCK_SIZE = BLOCK_X * BLOCK_Y;
 layout (local_size_x = BLOCK_X, local_size_y = BLOCK_Y, local_size_z = 1) in;
 
-shared int collected_id[BLOCK_SIZE];
-shared vec2 collected_xy[BLOCK_SIZE];
-shared vec4 collected_conic_opacity[BLOCK_SIZE];
 shared uint num_done;
+shared Gaussian collected_geom[BLOCK_SIZE];
 
 void main() {
     const uvec3 group = gl_WorkGroupID;
     const uvec3 thread = gl_LocalInvocationID;
     const uint rank = gl_LocalInvocationIndex;
+    Geometry geom = Geometry(PushConstants.geomAddress);
+    KeyList key_list = KeyList(PushConstants.keysAddress);
 
     // Get min and max pixel range of current tile.
     const uvec2 pix_min = uvec2(group.x * BLOCK_X, group.y * BLOCK_Y);
@@ -55,7 +63,8 @@ void main() {
         // Collectively fetch Gaussian data from global memory to shared memory.
         int progress = i * BLOCK_SIZE + int(rank);
         if(range.x + progress < range.y) {
-            // TODO
+            uint coll_id = key_list.id[range.x + progress];
+            collected_geom[rank] = geom.data[coll_id];
         }
 
         // Sync shared memory between threads.
@@ -65,10 +74,10 @@ void main() {
         // Iterate over current batch of collected Gaussians.
         for (int j = 0; !done && j < min(BLOCK_SIZE, todo); j++) {
             // Initialize helper variable for current Gaussian.
-            vec2 xy = collected_xy[j];
+            vec2 xy = collected_geom[j].mean2D;
             vec2 delta_xy = xy - vec2(pix.xy);
-            vec3 conic = collected_conic_opacity[j].xyz;
-            float opacity = collected_conic_opacity[j].w;
+            vec3 conic = collected_geom[j].conic;
+            float opacity = collected_geom[j].opacity;
 
             // Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
             // Obtain the exponential falloff from mean.
@@ -82,11 +91,11 @@ void main() {
             if(a < 1.0 / 255.0) continue;
             
             // Obtain color from geometry list using id.
-            // TODO - fetch color from geometry buffer.
-            color += vec3(0,0,1);
+            color += collected_geom[j].color * a;
             alpha += a;
 
             // Set thread to done when alpha reaches its max value.
+            // TODO - find better done conditon.
             done = alpha > 1.0;
             if (done) atomicAdd(num_done, 1);
         }           

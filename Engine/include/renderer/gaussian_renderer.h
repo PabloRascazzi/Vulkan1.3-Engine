@@ -10,11 +10,22 @@
 
 namespace core {
 
-	struct GaussianPushConstant {
-		glm::uvec2 resolution;
+	struct GaussianPreprocessPushConstant {
+		VkDeviceAddress geomAddress;
+		VkDeviceAddress keysAddress;
 
 		static uint32_t getSize() {
-			return sizeof(GaussianPushConstant);
+			return sizeof(GaussianPreprocessPushConstant);
+		}
+	};
+
+	struct GaussianRasterizePushConstant {
+		glm::uvec2 resolution;
+		VkDeviceAddress geomAddress;
+		VkDeviceAddress keysAddress;
+
+		static uint32_t getSize() {
+			return sizeof(GaussianRasterizePushConstant);
 		}
 	};
 
@@ -25,7 +36,8 @@ namespace core {
 
 	private:
 		// Pipelines.
-		ComputePipeline* m_gsPipeline;
+		ComputePipeline* m_preprocessPipeline;
+		ComputePipeline* m_rasterizePipeline;
 		PostPipeline* m_postPipeline;
 		// Descriptor buffers.
 		std::vector<Texture*> m_gsDescTextures;
