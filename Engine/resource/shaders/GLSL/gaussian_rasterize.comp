@@ -44,7 +44,7 @@ void main() {
 
     // TODO
     ivec2 range = ivec2(0,1);
-    int rounds = (range.y - range.x + BLOCK_SIZE) / BLOCK_SIZE;
+    int batches = (range.y - range.x + BLOCK_SIZE) / BLOCK_SIZE;
     int todo = range.y - range.x;
 
     // Initialize aggregating variables.
@@ -52,7 +52,7 @@ void main() {
     vec3 color = vec3(0);
 
     // Iterate over all Gaussians within range by batches of BLOCK_SIZE.
-    for (int i = 0; i < rounds; i++, todo -= BLOCK_SIZE) {
+    for (int i = 0; i < batches; i++, todo -= BLOCK_SIZE) {
         // Sync shared memory between threads.
         memoryBarrierShared();
         barrier();
@@ -63,7 +63,8 @@ void main() {
         // Collectively fetch Gaussian data from global memory to shared memory.
         int progress = i * BLOCK_SIZE + int(rank);
         if(range.x + progress < range.y) {
-            uint coll_id = key_list.id[range.x + progress];
+            // TODO - uint coll_id = key_list.id[range.x + progress];
+            uint coll_id = 0;
             collected_geom[rank] = geom.data[coll_id];
         }
 

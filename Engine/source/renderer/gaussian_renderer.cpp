@@ -1,8 +1,11 @@
 #include <renderer/gaussian_renderer.h>
 #include <engine_context.h>
+#include <debugger.h>
 #include <../resource/shaders/GLSL/gaussian_common.h>
 
 namespace core {
+
+    const uint32_t num_gaussians = 0; // TODO
 
 	GaussianRenderer::GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<DescriptorSet*>& globalDescSets) :
 		Renderer(device, computeQueue, presentQueue, swapchain), m_globalDescSets(globalDescSets) {
@@ -14,6 +17,9 @@ namespace core {
     }
 
 	GaussianRenderer::~GaussianRenderer() {
+        // Cleanup intermediary buffers.
+        ResourceAllocator::destroyBuffer(m_geomBuffer);
+        ResourceAllocator::destroyBuffer(m_keysBuffer);
         // Cleanup pipelines.
         delete m_preprocessPipeline;
         delete m_rasterizePipeline;
@@ -93,8 +99,6 @@ namespace core {
         m_gsDescSet = new DescriptorSet();
         // Bind render pass output image descriptor.
         m_gsDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT);
-        // Bind preprocessed gaussian geometry buffer descriptor.
-        m_gsDescSet->addDescriptor(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT);
         // Create descriptor set.
         m_gsDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
         m_gsDescSet->setName("Gaussian Splatting - Rasterize");
@@ -117,12 +121,20 @@ namespace core {
         std::vector<VkDescriptorSetLayout> postLayouts{ m_postDescSet->getSetLayout() };
 
         // Create pipelines.
-        m_rasterizePipeline = new ComputePipeline(m_device, "gaussian_preprocess", gsLayouts, sizeof(GaussianPreprocessPushConstant));
+        m_preprocessPipeline = new ComputePipeline(m_device, "gaussian_preprocess", gsLayouts, sizeof(GaussianPreprocessPushConstant));
         m_rasterizePipeline = new ComputePipeline(m_device, "gaussian_rasterize", gsLayouts, sizeof(GaussianRasterizePushConstant));
         m_postPipeline = new PostPipeline(m_device, "postShader", postLayouts, m_renderPass, m_swapchain.extent);
     }
 
     void GaussianRenderer::InitDescriptorSets(Scene& scene) {
+        // Initialize itermediary buffers.
+        VkDeviceSize geomSize = (num_gaussians * sizeof(Gaussian)) + sizeof(uint32_t);
+        ResourceAllocator::createBuffer(geomSize, m_geomBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+        Debugger::setObjectName(m_geomBuffer.buffer, "[Buffer] Gaussian Geometry");
+        VkDeviceSize keysSize = (num_gaussians + 1) * sizeof(uint32_t);
+        ResourceAllocator::createBuffer(geomSize, m_keysBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+        Debugger::setObjectName(m_keysBuffer.buffer, "[Buffer] Gaussian Keys");
+
         // Initialize descriptors for every frames in flight.
         VkDescriptorImageInfo imageDescInfos[MAX_FRAMES_IN_FLIGHT];
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -136,13 +148,6 @@ namespace core {
             imageDescInfos[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
             m_gsDescSet->writeImage(i, 0, imageDescInfos[i]);
             m_postDescSet->writeImage(i, 0, imageDescInfos[i]);
-
-            // Upload preprocessed gaussian geometry buffer.
-            // TODO - VkDescriptorBufferInfo geomDescInfo{};
-            // TODO - geomDescInfo.buffer = scene.getObjDescriptions().buffer;
-            // TODO - geomDescInfo.offset = 0;
-            // TODO - geomDescInfo.range = VK_WHOLE_SIZE;
-            // TODO - gsDescSet->writeBuffer(i, 2, geomDescInfo);
         }
         // Update descriptor sets.
         m_gsDescSet->update();
@@ -167,31 +172,51 @@ namespace core {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_preprocessPipeline->GetHandle());
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets{ m_globalDescSets[0]->getHandle(currentFrame) };
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_preprocessPipeline->GetLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+        std::vector<VkDescriptorSet> preprocessDescSets{ m_globalDescSets[0]->getHandle(currentFrame) };
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_preprocessPipeline->GetLayout(), 0, static_cast<uint32_t>(preprocessDescSets.size()), preprocessDescSets.data(), 0, nullptr);
 
         // Upload push constants
         GaussianPreprocessPushConstant preprocessConstant;
-        preprocessConstant.geomAddress = 0; // TODO
-        preprocessConstant.keysAddress = 0; // TODO
+        preprocessConstant.geomAddress = m_geomBuffer.getDeviceAddress();
+        preprocessConstant.keysAddress = m_keysBuffer.getDeviceAddress();
         vkCmdPushConstants(commandBuffer, m_preprocessPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, preprocessConstant.getSize(), &preprocessConstant);
 
         // Compute Gaussian Preprocessing
-        const uint32_t num_gaussians = 0; // TODO
         vkCmdDispatch(commandBuffer, (num_gaussians + BLOCK_SIZE) / BLOCK_SIZE, 1, 1);
+
+        // Create memory barrier for geometry buffer.
+        VkBufferMemoryBarrier geomBarrier{};
+        geomBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        geomBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+        geomBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        geomBarrier.buffer = m_geomBuffer.buffer;
+        geomBarrier.size = VK_WHOLE_SIZE;
+        geomBarrier.offset = 0;
+        // Create memory barrier for keys buffer.
+        VkBufferMemoryBarrier keysBarrier{};
+        keysBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        keysBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+        keysBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        keysBarrier.buffer = m_keysBuffer.buffer;
+        keysBarrier.size = VK_WHOLE_SIZE;
+        keysBarrier.offset = 0;
+
+        // Wait for previous compute shader to finish writing to buffers.
+        std::vector<VkBufferMemoryBarrier> barriers{ geomBarrier, keysBarrier };
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, static_cast<uint32_t>(barriers.size()), barriers.data(), 0, nullptr);
 
         // Bind pipeline.
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_rasterizePipeline->GetHandle());
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> descSets{ m_globalDescSets[0]->getHandle(currentFrame), m_gsDescSet->getHandle(currentFrame) };
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_rasterizePipeline->GetLayout(), 0, static_cast<uint32_t>(descSets.size()), descSets.data(), 0, nullptr);
+        std::vector<VkDescriptorSet> rasterizeDescSets{ m_globalDescSets[0]->getHandle(currentFrame), m_gsDescSet->getHandle(currentFrame) };
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_rasterizePipeline->GetLayout(), 0, static_cast<uint32_t>(rasterizeDescSets.size()), rasterizeDescSets.data(), 0, nullptr);
 
         // Upload push constants
         GaussianRasterizePushConstant rasterizeConstant;
         rasterizeConstant.resolution = glm::uvec2(m_swapchain.extent.width, m_swapchain.extent.height);
-        rasterizeConstant.geomAddress = 0; // TODO
-        rasterizeConstant.keysAddress = 0; // TODO
+        rasterizeConstant.geomAddress = m_geomBuffer.getDeviceAddress();
+        rasterizeConstant.keysAddress = m_keysBuffer.getDeviceAddress();
         vkCmdPushConstants(commandBuffer, m_rasterizePipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, rasterizeConstant.getSize(), &rasterizeConstant);
 
         // Compute Gaussian Rasterization

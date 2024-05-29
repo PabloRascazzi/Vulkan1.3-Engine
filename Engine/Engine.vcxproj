@@ -165,8 +165,10 @@
     <ClInclude Include="include\swapchain.h" />
     <ClInclude Include="include\texture.h" />
     <ClInclude Include="include\window.h" />
+    <ClInclude Include="resource\shaders\GLSL\gaussian_common.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="resource\shaders\GLSL\gaussian_preprocess.comp" />
     <None Include="resource\shaders\GLSL\gaussian_rasterize.comp" />
     <None Include="resource\shaders\GLSL\postShader.frag" />
     <None Include="resource\shaders\GLSL\postShader.vert" />

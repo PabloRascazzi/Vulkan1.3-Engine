@@ -111,6 +111,9 @@
     <ClInclude Include="include\swapchain.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="resource\shaders\GLSL\gaussian_common.h">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="resource\shaders\GLSL\postShader.frag">
@@ -138,6 +141,9 @@
       <Filter>Resource Files\Shaders\GLSL</Filter>
     </None>
     <None Include="resource\shaders\GLSL\gaussian_rasterize.comp">
+      <Filter>Resource Files\Shaders\GLSL</Filter>
+    </None>
+    <None Include="resource\shaders\GLSL\gaussian_preprocess.comp">
       <Filter>Resource Files\Shaders\GLSL</Filter>
     </None>
   </ItemGroup>

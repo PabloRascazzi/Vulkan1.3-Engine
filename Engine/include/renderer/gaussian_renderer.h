@@ -46,6 +46,9 @@ namespace core {
 		DescriptorSet* m_gsDescSet;
 		DescriptorSet* m_postDescSet;
 
+		Buffer m_geomBuffer;
+		Buffer m_keysBuffer;
+
 		void CreateRenderPass();
 		void CreateFramebuffers();
 		void CreateDescriptorSets();
