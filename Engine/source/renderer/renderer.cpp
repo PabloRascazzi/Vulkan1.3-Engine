@@ -16,18 +16,23 @@ namespace core {
             vkDestroySemaphore(m_device, m_imageAvailableSemaphores[i], nullptr);
             vkDestroySemaphore(m_device, m_renderFinishedSemaphores[i], nullptr);
             vkDestroyFence(m_device, m_inFlightFences[i], nullptr);
+            m_imageAvailableSemaphores[i] = VK_NULL_HANDLE;
+            m_renderFinishedSemaphores[i] = VK_NULL_HANDLE;
+            m_inFlightFences[i] = VK_NULL_HANDLE;
         }
         // Cleanup framebuffers.
         for (auto framebuffer : m_swapchainFramebuffers) {
             vkDestroyFramebuffer(m_device, framebuffer, nullptr);
+            framebuffer = VK_NULL_HANDLE;
         }
         // Cleanup renderpass.
         vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+        m_renderPass = VK_NULL_HANDLE;
     }
 
 	void Renderer::CreateCommandBuffers() {
 		m_commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        EngineContext::createCommandBuffer(m_commandBuffers.data(), MAX_FRAMES_IN_FLIGHT);
+        EngineContext::GetInstance().createCommandBuffer(m_commandBuffers.data(), MAX_FRAMES_IN_FLIGHT);
 	}
 
 	void Renderer::CreateSyncObjects() {

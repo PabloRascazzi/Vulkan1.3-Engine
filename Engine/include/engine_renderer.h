@@ -1,7 +1,11 @@
 #pragma once
+#include <engine_context.h>
 #include <scene.h>
 #include <descriptor_set.h>
 #include <renderer/renderer.h>
+#include <renderer/standard_renderer.h>
+#include <renderer/pathtraced_renderer.h>
+#include <renderer/gaussian_renderer.h>
 #include <swapchain.h>
 
 #include <vulkan/vulkan.hpp>
@@ -11,49 +15,48 @@ namespace core {
 
 	class EngineRenderer {
 	public:
-		static void setup(Scene* scene);
-		static void cleanup();
-		static void render(const uint8_t rendermode);
-		static void renderToImage(Image& image); // TODO - render to an image instead of a swapchain framebuffer.
+		EngineRenderer(const std::shared_ptr<Scene>& scene);
+		~EngineRenderer();
+		void Render(const uint8_t rendermode);
+		void RenderToImage(Image& image); // TODO - render to an image instead of a swapchain framebuffer.
 
-		static Swapchain& getSwapchain() { return swapchain; }
-		static uint32_t getCurrentSwapchainIndex() { return currentSwapchainIndex; }
-
-		static void setScene(Scene& scene) { EngineRenderer::scene = &scene; }
+		void SetScene(const std::shared_ptr<Scene>& scene) { this->m_scene = scene; }
 
 	private:
+		EngineContext& m_context;
+
 		// Swapchain for the main window surface.
-		static Swapchain swapchain;
-		static uint32_t currentSwapchainIndex;
+		Swapchain m_swapchain;
+		uint32_t m_currentSwapchainIndex;
 
 		// Current scene to render.
-		static Scene* scene; 
+		std::shared_ptr<Scene> m_scene;
 		
 		// Descriptor Sets.
-		static DescriptorSet* cameraDescSet;
-		static DescriptorSet* texturesDescSet;
+		std::shared_ptr<DescriptorSet> m_cameraDescSet;
+		std::shared_ptr<DescriptorSet> m_texturesDescSet;
 
 		// Descriptor buffers.
-		static Buffer cameraDescBuffer;
-		static uint32_t cameraDescBufferAlignment;
+		Buffer m_cameraDescBuffer;
+		uint32_t m_cameraDescBufferAlignment;
 
 		// Instances for all the renderers.
-		static Renderer* standardRenderer;
-		static Renderer* raytracedRenderer;
-		static Renderer* pathtracedRenderer;
-		static Renderer* gaussianRenderer;
+		std::unique_ptr<StandardRenderer> m_standardRenderer;
+		std::unique_ptr<Renderer> m_raytracedRenderer;
+		std::unique_ptr<PathTracedRenderer> m_pathtracedRenderer;
+		std::unique_ptr<GaussianRenderer> m_gaussianRenderer;
 
-		static void createSwapChain();
-		static void createRenderers();
-		static void createDescriptorSets();
-		static void initDescriptorSets();
+		void CreateSwapChain();
+		void CreateRenderers();
+		void CreateDescriptorSets();
+		void InitDescriptorSets();
 
 		// Recreates the swapchain.
-		static void updateSwapchain();
+		void UpdateSwapchain();
 		// Updates the global descriptor sets' buffer data.
-		static void updateDescriptorSets();
-		static void updateCameraDescriptor();
-		static void updateTextureArrayDescriptor();
+		void UpdateDescriptorSets();
+		void UpdateCameraDescriptor();
+		void UpdateTextureArrayDescriptor();
 
 	};
 }

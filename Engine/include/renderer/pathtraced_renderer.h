@@ -12,19 +12,19 @@ namespace core {
 
 	class PathTracedRenderer : public Renderer {
 	public:
-		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<DescriptorSet*> globalDescSets);
-		~PathTracedRenderer();
+		PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<std::shared_ptr<DescriptorSet>>& globalDescSets);
+		~PathTracedRenderer() = default;
 
 	private:
 		// Pipelines.
-		RayTracingPipeline* m_rtPipeline;
-		PostPipeline* m_postPipeline;
+		std::unique_ptr<RayTracingPipeline> m_rtPipeline;
+		std::unique_ptr<PostPipeline> m_postPipeline;
 		// Descriptor buffers.
-		std::vector<Texture*> m_rtDescTextures;
+		std::vector<std::unique_ptr<Texture>> m_rtDescTextures;
 		// Descriptor Sets.
-		std::vector<DescriptorSet*> m_globalDescSets;
-		DescriptorSet* m_rtDescSet;
-		DescriptorSet* m_postDescSet;
+		std::vector<std::shared_ptr<DescriptorSet>> m_globalDescSets;
+		std::shared_ptr<DescriptorSet> m_rtDescSet;
+		std::shared_ptr<DescriptorSet> m_postDescSet;
 
 		void CreateRenderPass();
 		void CreateFramebuffers();

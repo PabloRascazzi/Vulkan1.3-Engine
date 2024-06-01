@@ -12,7 +12,9 @@ namespace core {
 
 	void DescriptorSet::cleanup() {
 		vkDestroyDescriptorSetLayout(device, layout, nullptr);
+		layout = VK_NULL_HANDLE;
 		vkDestroyDescriptorPool(device, pool, nullptr);
+		pool = VK_NULL_HANDLE;
 	}
 
 	void DescriptorSet::addDescriptor(uint32_t binding, VkDescriptorType type, uint32_t count, VkShaderStageFlags shaderStageFlags, VkDescriptorBindingFlags flags) {

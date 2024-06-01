@@ -3,7 +3,7 @@
 
 namespace core {
 
-    StandardRenderer::StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<DescriptorSet*> globalDescSets) : 
+    StandardRenderer::StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<std::shared_ptr<DescriptorSet>>& globalDescSets) : 
         Renderer(device, graphicsQueue, presentQueue, swapchain), m_globalDescSets(globalDescSets), m_depthImageFormat(VK_FORMAT_D32_SFLOAT) {
     
         CreateRenderPass();
@@ -13,7 +13,6 @@ namespace core {
     }
 
     StandardRenderer::~StandardRenderer() {
-        delete m_pipeline;
         ResourceAllocator::destroyImageView(m_depthImageView);
         ResourceAllocator::destroyImage(m_depthImage);
     }
@@ -22,7 +21,7 @@ namespace core {
         // Create depth image.
         ResourceAllocator::createImage2D(m_swapchain.extent, m_depthImageFormat, 1, m_depthImage, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
         ResourceAllocator::createImageView2D(m_depthImage.image, m_depthImageView, m_depthImageFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-        EngineContext::transitionImageLayout(m_depthImage.image, m_depthImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        EngineContext::GetInstance().transitionImageLayout(m_depthImage.image, m_depthImageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
         
         // Create framebuffers.
         m_swapchainFramebuffers.resize(m_swapchain.imageViews.size());
@@ -108,7 +107,7 @@ namespace core {
     void StandardRenderer::CreatePipeline() {
         std::vector<VkDescriptorSetLayout> layouts;
         for (const auto& descSet : m_globalDescSets) layouts.push_back(descSet->getSetLayout());
-        m_pipeline = new StandardPipeline(m_device, "shader", layouts, m_renderPass, m_swapchain.extent);
+        m_pipeline = std::make_unique<StandardPipeline>(m_device, "shader", layouts, m_renderPass, m_swapchain.extent);
     }
 
     void StandardRenderer::InitDescriptorSets(Scene& scene) {

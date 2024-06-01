@@ -32,22 +32,7 @@ void load_extension_VK_EXT_debug_report(VkInstance);
 
 namespace core {
 
-    Window EngineContext::window;
-    VkInstance EngineContext::instance;
-    vk::SurfaceKHR EngineContext::surface;
-    std::vector<const char*> EngineContext::instanceExtensions;
-    std::vector<const char*> EngineContext::deviceExtensions;
-    std::vector<const char*> EngineContext::layers;
-
-    PhysicalDeviceProperties EngineContext::physicalDeviceProperties;
-    vk::PhysicalDevice EngineContext::physicalDevice = VK_NULL_HANDLE;
-    vk::Device EngineContext::device = VK_NULL_HANDLE;
-    vk::Queue EngineContext::graphicsQueue = VK_NULL_HANDLE;
-    vk::Queue EngineContext::presentQueue = VK_NULL_HANDLE;
-
-    vk::CommandPool EngineContext::commandPool;
-
-    void EngineContext::setup() {
+    EngineContext::EngineContext() {
         try {
             window.setup();
             setupInstanceExtensions();
@@ -68,16 +53,7 @@ namespace core {
         Time::setup();
     }
 
-    bool EngineContext::update() {
-        // Time code
-        Time::update();
-#if defined(_DEBUG)
-        Time::fpsCounter();
-#endif
-        return window.update();
-    }
-
-    void EngineContext::cleanup() {
+    EngineContext::~EngineContext() {
         // Destroy all vulkan objects
         device.destroyCommandPool(commandPool);
         Debugger::cleanup();
@@ -86,6 +62,15 @@ namespace core {
         vkDestroySurfaceKHR(instance, surface, nullptr);
         window.cleanup();
         vkDestroyInstance(instance, nullptr);
+    }
+
+    bool EngineContext::update() {
+        // Time code
+        Time::update();
+#if defined(_DEBUG)
+        Time::fpsCounter();
+#endif
+        return window.update();
     }
 
     void EngineContext::setupInstanceExtensions() {

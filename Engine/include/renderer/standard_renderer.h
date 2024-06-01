@@ -11,7 +11,7 @@ namespace core {
 
 	class StandardRenderer : public Renderer {
 	public:
-		StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<DescriptorSet*> globalDescSets);
+		StandardRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<std::shared_ptr<DescriptorSet>>& globalDescSets);
 		~StandardRenderer();
 
 	private:
@@ -21,9 +21,9 @@ namespace core {
 		VkFormat m_depthImageFormat;
 
 		// Pipelines.
-		StandardPipeline* m_pipeline;
+		std::unique_ptr<StandardPipeline> m_pipeline;
 		// Descriptor Sets.
-		std::vector<DescriptorSet*> m_globalDescSets;
+		std::vector<std::shared_ptr<DescriptorSet>> m_globalDescSets;
 
 		void CreateRenderPass();
 		void CreateFramebuffers();

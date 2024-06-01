@@ -3,25 +3,13 @@
 
 namespace core {
 
-    PathTracedRenderer::PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<DescriptorSet*> globalDescSets) : 
+    PathTracedRenderer::PathTracedRenderer(VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<std::shared_ptr<DescriptorSet>>& globalDescSets) : 
         Renderer(device, graphicsQueue, presentQueue, swapchain), m_globalDescSets(globalDescSets) {
     
         CreateRenderPass();
         CreateFramebuffers();
         CreateDescriptorSets();
         CreatePipeline();
-    }
-
-    PathTracedRenderer::~PathTracedRenderer() {
-        // Cleanup pipelines.
-        delete m_rtPipeline;
-        delete m_postPipeline;
-        // Cleanup descriptor buffers.
-        for (auto& texture : m_rtDescTextures)
-            delete texture;
-        // Cleanup descriptor sets.
-        delete m_rtDescSet;
-        delete m_postDescSet;
     }
 
     void PathTracedRenderer::CreateRenderPass() {
@@ -88,7 +76,7 @@ namespace core {
     //***************************************************************************************//
 
     void PathTracedRenderer::CreateDescriptorSets() {
-        m_rtDescSet = new DescriptorSet();
+        m_rtDescSet = std::make_shared<DescriptorSet>();
         // Bind top-level acceleration structure descriptor.
         m_rtDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
         // Bind render pass output image descriptor.
@@ -96,14 +84,14 @@ namespace core {
         // Bind object descriptions buffer descriptor.
         m_rtDescSet->addDescriptor(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
         // Create descriptor set.
-        m_rtDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
+        m_rtDescSet->create(EngineContext::GetInstance().getDevice(), MAX_FRAMES_IN_FLIGHT);
         m_rtDescSet->setName("RayTracing - RayTrace");
 
-        m_postDescSet = new DescriptorSet();
+        m_postDescSet = std::make_shared<DescriptorSet>();
         // Bind render pass input image descriptor.
         m_postDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         // Create descriptor set.
-        m_postDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
+        m_postDescSet->create(EngineContext::GetInstance().getDevice(), MAX_FRAMES_IN_FLIGHT);
         m_postDescSet->setName("RayTracing - Post");
     }
 
@@ -117,8 +105,8 @@ namespace core {
         std::vector<VkDescriptorSetLayout> postLayouts{ m_postDescSet->getSetLayout() };
 
         // Create pipelines.
-        m_rtPipeline = new RayTracingPipeline(m_device, rtLayouts);
-        m_postPipeline = new PostPipeline(m_device, "postShader", postLayouts, m_renderPass, m_swapchain.extent);
+        m_rtPipeline = std::make_unique<RayTracingPipeline>(m_device, rtLayouts);
+        m_postPipeline = std::make_unique<PostPipeline>(m_device, "postShader", postLayouts, m_renderPass, m_swapchain.extent);
     }
 
     void PathTracedRenderer::InitDescriptorSets(Scene& scene) {
@@ -133,9 +121,9 @@ namespace core {
             m_rtDescSet->writeAccelerationStructureKHR(i, 0, tlasDescInfo);
 
             // Upload ray-tracing render pass output image uniform.
-            Texture* outTexture = new Texture(m_swapchain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-            EngineContext::transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-            m_rtDescTextures.push_back(outTexture);
+            std::unique_ptr<Texture> outTexture = std::make_unique<Texture>(m_swapchain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+            EngineContext::GetInstance().transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            m_rtDescTextures.push_back(std::move(outTexture));
 
             imageDescInfos[i].sampler = m_rtDescTextures[i]->getSampler();
             imageDescInfos[i].imageView = m_rtDescTextures[i]->getImageView();
@@ -182,7 +170,7 @@ namespace core {
         vkCmdPushConstants(commandBuffer, m_rtPipeline->GetLayout(), constant.getShaderStageFlags(), 0, constant.getSize(), &constant);
 
         // Draw ray-traced.
-        SBTWrapper sbt = static_cast<RayTracingPipeline*>(m_rtPipeline)->GetSBT();
+        SBTWrapper sbt = m_rtPipeline->GetSBT();
         uint32_t width = m_swapchain.extent.width;
         uint32_t height = m_swapchain.extent.height;
         vkCmdTraceRaysKHR(commandBuffer, &sbt.rgenRegion, &sbt.missRegion, &sbt.hitRegion, &sbt.callRegion, width, height, 1);

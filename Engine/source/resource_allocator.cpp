@@ -203,11 +203,13 @@ namespace core {
         return getBufferDeviceAddress(buffer.buffer);
     }
 
-    void ResourceAllocator::destroyBuffer(const VkBuffer& buffer, const VmaAllocation& allocation) {
+    void ResourceAllocator::destroyBuffer(VkBuffer& buffer, VmaAllocation& allocation) {
         vmaDestroyBuffer(allocator, buffer, allocation);
+        buffer = VK_NULL_HANDLE;
+        allocation = VK_NULL_HANDLE;
     }
 
-	void ResourceAllocator::destroyBuffer(const Buffer& buffer) {
+	void ResourceAllocator::destroyBuffer(Buffer& buffer) {
         destroyBuffer(buffer.buffer, buffer.allocation);
     }
 
@@ -315,7 +317,7 @@ namespace core {
         createImage2D(extent, format, mipLevels, dstImage, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage);
 
         // Transition image layout.
-        EngineContext::transitionImageLayout(commandBuffer, dstImage.image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        EngineContext::GetInstance().transitionImageLayout(commandBuffer, dstImage.image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         // Copy data from source buffer to destination image.
         VkBufferImageCopy copyRegion{};
@@ -359,7 +361,7 @@ namespace core {
         samplerInfo.addressModeV = addressMode;
         samplerInfo.addressModeW = addressMode;
         samplerInfo.anisotropyEnable = enableAnisotropy;
-        samplerInfo.maxAnisotropy = EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.maxSamplerAnisotropy;
+        samplerInfo.maxAnisotropy = EngineContext::GetInstance().getPhysicalDeviceProperties().deviceProperties.limits.maxSamplerAnisotropy;
         samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
         samplerInfo.unnormalizedCoordinates = VK_FALSE;
         samplerInfo.compareEnable = VK_FALSE;
@@ -372,20 +374,24 @@ namespace core {
         VK_CHECK(vkCreateSampler(device, &samplerInfo, nullptr, &sampler));
     }
 
-    void ResourceAllocator::destroyImage(const VkImage& image, const VmaAllocation& allocation) {
+    void ResourceAllocator::destroyImage(VkImage& image, VmaAllocation& allocation) {
         vmaDestroyImage(allocator, image, allocation);
+        image = VK_NULL_HANDLE;
+        allocation = VK_NULL_HANDLE;
     }
 
-	void ResourceAllocator::destroyImage(const Image& image) {
+	void ResourceAllocator::destroyImage(Image& image) {
         destroyImage(image.image, image.allocation);
     }
 
-    void ResourceAllocator::destroyImageView(const VkImageView& view) {
+    void ResourceAllocator::destroyImageView(VkImageView& view) {
         vkDestroyImageView(device, view, nullptr);
+        view = VK_NULL_HANDLE;
     }
 
-    void ResourceAllocator::destroySampler(const VkSampler& sampler) {
+    void ResourceAllocator::destroySampler(VkSampler& sampler) {
         vkDestroySampler(device, sampler, nullptr);
+        sampler = VK_NULL_HANDLE;
     }
 
     //***************************************************************************************//
@@ -404,10 +410,11 @@ namespace core {
 		VK_CHECK(vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &accelStruct.handle));
     }
 
-	void ResourceAllocator::destroyAccelerationStructure(const AccelerationStructure& accelStruct) {
+	void ResourceAllocator::destroyAccelerationStructure(AccelerationStructure& accelStruct) {
         if (accelStruct.handle != VK_NULL_HANDLE) {
             destroyBuffer(accelStruct.buffer, accelStruct.allocation);
             vkDestroyAccelerationStructureKHR(device, accelStruct.handle, nullptr);
+            accelStruct.handle = VK_NULL_HANDLE;
         }
     }
 }

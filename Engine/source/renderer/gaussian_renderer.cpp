@@ -7,7 +7,7 @@ namespace core {
 
     const uint32_t num_gaussians = 0; // TODO
 
-	GaussianRenderer::GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<DescriptorSet*>& globalDescSets) :
+	GaussianRenderer::GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<std::shared_ptr<DescriptorSet>>& globalDescSets) :
 		Renderer(device, computeQueue, presentQueue, swapchain), m_globalDescSets(globalDescSets) {
     
         CreateRenderPass();
@@ -20,16 +20,6 @@ namespace core {
         // Cleanup intermediary buffers.
         ResourceAllocator::destroyBuffer(m_geomBuffer);
         ResourceAllocator::destroyBuffer(m_keysBuffer);
-        // Cleanup pipelines.
-        delete m_preprocessPipeline;
-        delete m_rasterizePipeline;
-        delete m_postPipeline;
-        // Cleanup descriptor buffers.
-        for (auto& texture : m_gsDescTextures)
-            delete texture;
-        // Cleanup descriptor sets.
-        delete m_gsDescSet;
-        delete m_postDescSet;
 	}
 
     void GaussianRenderer::CreateRenderPass() {
@@ -96,18 +86,18 @@ namespace core {
     //***************************************************************************************//
 
     void GaussianRenderer::CreateDescriptorSets() {
-        m_gsDescSet = new DescriptorSet();
+        m_gsDescSet = std::make_shared<DescriptorSet>();
         // Bind render pass output image descriptor.
         m_gsDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT);
         // Create descriptor set.
-        m_gsDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
+        m_gsDescSet->create(EngineContext::GetInstance().getDevice(), MAX_FRAMES_IN_FLIGHT);
         m_gsDescSet->setName("Gaussian Splatting - Rasterize");
 
-        m_postDescSet = new DescriptorSet();
+        m_postDescSet = std::make_shared<DescriptorSet>();
         // Bind render pass input image descriptor.
         m_postDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         // Create descriptor set.
-        m_postDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
+        m_postDescSet->create(EngineContext::GetInstance().getDevice(), MAX_FRAMES_IN_FLIGHT);
         m_postDescSet->setName("Gaussian Splatting - Post");
     }
 
@@ -121,9 +111,9 @@ namespace core {
         std::vector<VkDescriptorSetLayout> postLayouts{ m_postDescSet->getSetLayout() };
 
         // Create pipelines.
-        m_preprocessPipeline = new ComputePipeline(m_device, "gaussian_preprocess", gsLayouts, sizeof(GaussianPreprocessPushConstant));
-        m_rasterizePipeline = new ComputePipeline(m_device, "gaussian_rasterize", gsLayouts, sizeof(GaussianRasterizePushConstant));
-        m_postPipeline = new PostPipeline(m_device, "postShader", postLayouts, m_renderPass, m_swapchain.extent);
+        m_preprocessPipeline = std::make_unique<ComputePipeline>(m_device, "gaussian_preprocess", gsLayouts, sizeof(GaussianPreprocessPushConstant));
+        m_rasterizePipeline = std::make_unique<ComputePipeline>(m_device, "gaussian_rasterize", gsLayouts, sizeof(GaussianRasterizePushConstant));
+        m_postPipeline = std::make_unique<PostPipeline>(m_device, "postShader", postLayouts, m_renderPass, m_swapchain.extent);
     }
 
     void GaussianRenderer::InitDescriptorSets(Scene& scene) {
@@ -139,9 +129,9 @@ namespace core {
         VkDescriptorImageInfo imageDescInfos[MAX_FRAMES_IN_FLIGHT];
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             // Upload ray-tracing render pass output image uniform.
-            Texture* outTexture = new Texture(m_swapchain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-            EngineContext::transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-            m_gsDescTextures.push_back(outTexture);
+            std::unique_ptr<Texture> outTexture = std::make_unique<Texture>(m_swapchain.extent, nullptr, VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 1, VK_FALSE, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+            EngineContext::GetInstance().transitionImageLayout(outTexture->getImage().image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            m_gsDescTextures.push_back(std::move(outTexture));
 
             imageDescInfos[i].sampler = m_gsDescTextures[i]->getSampler();
             imageDescInfos[i].imageView = m_gsDescTextures[i]->getImageView();

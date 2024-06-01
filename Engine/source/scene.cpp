@@ -63,7 +63,7 @@ namespace core {
 					textureIndex = nextTextureIndex++;
 					textureIndices.emplace(pTexture, textureIndex);
 					textures.push_back(pTexture);
-					EngineContext::transitionImageLayout(pTexture->getImage().image, pTexture->getFormat(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+					EngineContext::GetInstance().transitionImageLayout(pTexture->getImage().image, pTexture->getFormat(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 				}
 			}
 			return textureIndex;
@@ -183,7 +183,7 @@ namespace core {
 			buildAS[i].rangeInfo = &input[i].offset;
 
 			// Find sizes for accelerated structure and scratch buffer.
-			vkGetAccelerationStructureBuildSizesKHR(EngineContext::getDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildAS[i].buildInfo, &buildAS[i].rangeInfo[0].primitiveCount, &buildAS[i].sizeInfo);
+			vkGetAccelerationStructureBuildSizesKHR(EngineContext::GetInstance().getDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildAS[i].buildInfo, &buildAS[i].rangeInfo[0].primitiveCount, &buildAS[i].sizeInfo);
 		
 			totalSize += buildAS[i].sizeInfo.accelerationStructureSize;
 			maxScratchSize = std::max(maxScratchSize, buildAS[i].sizeInfo.buildScratchSize);
@@ -191,7 +191,7 @@ namespace core {
 
 		// Allocate scratch buffers holding the temporary data of the acceleration structure builder.
 		Buffer scratchBuffer;
-		VkDeviceAddress scratchAlignment = EngineContext::getPhysicalDeviceProperties().accelStructProperties.minAccelerationStructureScratchOffsetAlignment;
+		VkDeviceAddress scratchAlignment = EngineContext::GetInstance().getPhysicalDeviceProperties().accelStructProperties.minAccelerationStructureScratchOffsetAlignment;
 		ResourceAllocator::createBufferWithAlignment(maxScratchSize, scratchAlignment, scratchBuffer, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 		VkDeviceAddress scratchAddress = scratchBuffer.getDeviceAddress();
 
@@ -206,7 +206,7 @@ namespace core {
 			// Over the batch limit or the last BLAS element.
 			if (batchSize >= batchLimit || i == blasCount - 1) {
 				VkCommandBuffer cmdBuffer;
-				EngineContext::createCommandBuffer(&cmdBuffer, 1);
+				EngineContext::GetInstance().createCommandBuffer(&cmdBuffer, 1);
 				
 				// Record command buffer.
 				VkCommandBufferBeginInfo beginInfo{};
@@ -241,8 +241,8 @@ namespace core {
 				submitInfo.commandBufferCount = 1;
 				submitInfo.pCommandBuffers = &cmdBuffer;
 
-				VK_CHECK(vkQueueSubmit(EngineContext::getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
-				VK_CHECK(vkQueueWaitIdle(EngineContext::getGraphicsQueue()));
+				VK_CHECK(vkQueueSubmit(EngineContext::GetInstance().GetInstance().getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+				VK_CHECK(vkQueueWaitIdle(EngineContext::GetInstance().GetInstance().getGraphicsQueue()));
 
 				// Reset
 				batchSize = 0;
@@ -281,7 +281,7 @@ namespace core {
 
 		// Create command buffer.
 		VkCommandBuffer cmdBuffer;
-		EngineContext::createCommandBuffer(&cmdBuffer, 1);
+		EngineContext::GetInstance().createCommandBuffer(&cmdBuffer, 1);
 
 		// Record command buffer.
 		VkCommandBufferBeginInfo beginInfo{};
@@ -324,7 +324,7 @@ namespace core {
 
 		VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
 		sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
-		vkGetAccelerationStructureBuildSizesKHR(EngineContext::getDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &instCount, &sizeInfo);
+		vkGetAccelerationStructureBuildSizesKHR(EngineContext::GetInstance().getDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &instCount, &sizeInfo);
 
 		// Create TLAS buffer.
 		ResourceAllocator::createAccelerationStructure(sizeInfo.accelerationStructureSize, tlas, VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR);
@@ -362,8 +362,8 @@ namespace core {
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &cmdBuffer;
 
-		VK_CHECK(vkQueueSubmit(EngineContext::getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
-		VK_CHECK(vkQueueWaitIdle(EngineContext::getGraphicsQueue()));
+		VK_CHECK(vkQueueSubmit(EngineContext::GetInstance().getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+		VK_CHECK(vkQueueWaitIdle(EngineContext::GetInstance().getGraphicsQueue()));
 
 		// Cleanup.
 		ResourceAllocator::destroyBuffer(scratchBuffer);

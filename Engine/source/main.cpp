@@ -18,30 +18,30 @@
 using namespace core;
 
 int main() {
+    EngineContext& context = EngineContext::GetInstance();
     Input::setup();
 
     // This is where most initialization for a program should be performed
-    EngineContext::getWindow().setKeyCallback(Input::keyCallback);
-    EngineContext::getWindow().setMouseButtonCallback(Input::mouseButtonCallback);
-    EngineContext::getWindow().setMouseMotionCallback(Input::mouseMotionCallback);
-    EngineContext::setup();
+    context.getWindow().setKeyCallback(Input::keyCallback);
+    context.getWindow().setMouseButtonCallback(Input::mouseButtonCallback);
+    context.getWindow().setMouseMotionCallback(Input::mouseMotionCallback);
 
     // Print physical device name.
     VkPhysicalDeviceProperties deviceProperties;
-    vkGetPhysicalDeviceProperties((VkPhysicalDevice)EngineContext::getPhysicalDevice(), &deviceProperties);
+    vkGetPhysicalDeviceProperties((VkPhysicalDevice)context.getPhysicalDevice(), &deviceProperties);
     std::cout << "Physical Device: " << deviceProperties.deviceName << std::endl;
 
     // Print queue indices.
-    std::cout << "Graphics Queue: " << EngineContext::getGraphicsQueue() << std::endl;
-    std::cout << "Present Queue:  " << EngineContext::getPresentQueue() << std::endl;
+    std::cout << "Graphics Queue: " << context.getGraphicsQueue() << std::endl;
+    std::cout << "Present Queue:  " << context.getPresentQueue() << std::endl;
 
     // Print Device Properties.
-    std::cout << "Max Bound Descriptor Sets: " << EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.maxBoundDescriptorSets << std::endl;
-    std::cout << "Max Push Constant Size: " << EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.maxPushConstantsSize << std::endl;
-    std::cout << "Max Recursion Depth: " << EngineContext::getPhysicalDeviceProperties().raytracingProperties.maxRayRecursionDepth << std::endl;
-    std::cout << "Max Geometry Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxGeometryCount << std::endl;
-    std::cout << "Max Instance Count: " << EngineContext::getPhysicalDeviceProperties().accelStructProperties.maxInstanceCount << std::endl;
-    std::cout << "Min Uniform Buffer Offset Alignment: " << EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment << std::endl;
+    std::cout << "Max Bound Descriptor Sets: " << context.getPhysicalDeviceProperties().deviceProperties.limits.maxBoundDescriptorSets << std::endl;
+    std::cout << "Max Push Constant Size: " << context.getPhysicalDeviceProperties().deviceProperties.limits.maxPushConstantsSize << std::endl;
+    std::cout << "Max Recursion Depth: " << context.getPhysicalDeviceProperties().raytracingProperties.maxRayRecursionDepth << std::endl;
+    std::cout << "Max Geometry Count: " << context.getPhysicalDeviceProperties().accelStructProperties.maxGeometryCount << std::endl;
+    std::cout << "Max Instance Count: " << context.getPhysicalDeviceProperties().accelStructProperties.maxInstanceCount << std::endl;
+    std::cout << "Min Uniform Buffer Offset Alignment: " << context.getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment << std::endl;
 
     // Create Meshes.
     Mesh* anvil = FileReader::readMeshFile("anvil");
@@ -55,7 +55,7 @@ int main() {
     Texture* riverDirtNormal = FileReader::readImageFile("RiverDirt_Normals_512.png", COLOR_SPACE_LINEAR);
 
     // Create Scene.
-    Scene* scene = new Scene();
+    std::shared_ptr<Scene> scene = std::make_shared<Scene>();
     // Create Materials.
     Material* cubeMat =   scene->addMaterial(riverDirtDiffuse, glm::vec3(1.0f, 0.0f, 0.0f), nullptr, 0.0f, 0.5f, riverDirtNormal, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
     Material* mirrorMat = scene->addMaterial(testTex, glm::vec3(0.0f, 1.0f, 0.0f), nullptr, 0.0f, 0.5f, nullptr, glm::vec2(1.0f, 1.0f), glm::vec2(0.0f, 0.0f));
@@ -68,18 +68,18 @@ int main() {
     Object* demoCube = scene->addObject(cube, std::vector{ cubeMat }, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, -5.0f)), 0);
     Object* floor    = scene->addObject(plane, std::vector{ floorMat }, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
     Object* anvilObj = scene->addObject(anvil, std::vector{ anvilMat }, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -2.0f)), 0);
-    Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, EngineContext::getWindow().getAspectRatio());
+    Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, context.getWindow().getAspectRatio());
     // Setup Scene.
     scene->setup();
 
     // Select scene to render and setup renderer.
-    EngineRenderer::setup(scene);
+    EngineRenderer renderer = EngineRenderer(scene);
 
     // Main loop
     uint8_t rendermode = 0;
-    while (EngineContext::update()) {
+    while (context.update()) {
         if (Input::getKeyDown(INPUT_KEY_ESCAPE)) {
-            EngineContext::exit();
+            context.exit();
         }
 
         // Update and render game starting here.
@@ -97,14 +97,14 @@ int main() {
         scene->update();
 
         // Render scene.
-        EngineRenderer::render(rendermode);
+        renderer.Render(rendermode);
 
         // Reset Inputs.
         Input::reset();
     }
 
     // Wait for all GPU commands to finish.
-    EngineContext::getDevice().waitIdle();
+    context.getDevice().waitIdle();
 
     // Clean up objects.
     delete riverDirtNormal;
@@ -114,10 +114,5 @@ int main() {
     delete quad;
     delete plane;
     delete cube;
-    delete scene;
-    EngineRenderer::cleanup();
-    EngineContext::cleanup();
     Input::cleanup();
-
-    return 0;
 }

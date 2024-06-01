@@ -129,16 +129,16 @@ namespace core {
 		uint32_t missCount = 1;
 		uint32_t hitCount = 1;
 		uint32_t handleCount = 1 + missCount + hitCount;
-		uint32_t handleSize = EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupHandleSize;
+		uint32_t handleSize = EngineContext::GetInstance().getPhysicalDeviceProperties().raytracingProperties.shaderGroupHandleSize;
 
 		// Align all group handles.
-		uint32_t handleSizeAligned = alignUp(handleSize, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupHandleAlignment);
-		m_sbt.rgenRegion.stride = alignUp(handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
+		uint32_t handleSizeAligned = alignUp(handleSize, EngineContext::GetInstance().getPhysicalDeviceProperties().raytracingProperties.shaderGroupHandleAlignment);
+		m_sbt.rgenRegion.stride = alignUp(handleSizeAligned, EngineContext::GetInstance().getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
 		m_sbt.rgenRegion.size = m_sbt.rgenRegion.stride; // Ray generation size must be equal to ray generation stride.
 		m_sbt.missRegion.stride = handleSizeAligned;
-		m_sbt.missRegion.size = alignUp(missCount * handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
+		m_sbt.missRegion.size = alignUp(missCount * handleSizeAligned, EngineContext::GetInstance().getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
 		m_sbt.hitRegion.stride = handleSizeAligned;
-		m_sbt.hitRegion.size = alignUp(hitCount * handleSizeAligned, EngineContext::getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
+		m_sbt.hitRegion.size = alignUp(hitCount * handleSizeAligned, EngineContext::GetInstance().getPhysicalDeviceProperties().raytracingProperties.shaderGroupBaseAlignment);
 
 	    // Get the shader group handles.
 		uint32_t dataSize = handleCount * handleSize;

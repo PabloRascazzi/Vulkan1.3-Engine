@@ -31,20 +31,20 @@ namespace core {
 
 	class GaussianRenderer : public Renderer {
 	public:
-		GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<DescriptorSet*>& globalDescSets);
+		GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapChain, const std::vector<std::shared_ptr<DescriptorSet>>& globalDescSets);
 		~GaussianRenderer();
 
 	private:
 		// Pipelines.
-		ComputePipeline* m_preprocessPipeline;
-		ComputePipeline* m_rasterizePipeline;
-		PostPipeline* m_postPipeline;
+		std::unique_ptr<ComputePipeline> m_preprocessPipeline;
+		std::unique_ptr<ComputePipeline> m_rasterizePipeline;
+		std::unique_ptr<PostPipeline> m_postPipeline;
 		// Descriptor buffers.
-		std::vector<Texture*> m_gsDescTextures;
+		std::vector<std::unique_ptr<Texture>> m_gsDescTextures;
 		// Descriptor Sets.
-		std::vector<DescriptorSet*> m_globalDescSets;
-		DescriptorSet* m_gsDescSet;
-		DescriptorSet* m_postDescSet;
+		std::vector<std::shared_ptr<DescriptorSet>> m_globalDescSets;
+		std::shared_ptr<DescriptorSet> m_gsDescSet;
+		std::shared_ptr<DescriptorSet> m_postDescSet;
 
 		Buffer m_geomBuffer;
 		Buffer m_keysBuffer;

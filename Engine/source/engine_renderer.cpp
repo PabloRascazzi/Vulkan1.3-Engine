@@ -10,64 +10,35 @@
 
 namespace core {
 
-    // Swapchain for the main window surface.
-    Swapchain EngineRenderer::swapchain;
-    uint32_t EngineRenderer::currentSwapchainIndex;
-
-    // Current scene to render.
-    Scene* EngineRenderer::scene;
-
-    // Global Descriptor Sets.
-    DescriptorSet* EngineRenderer::cameraDescSet;
-    DescriptorSet* EngineRenderer::texturesDescSet;
-
-    // Global Descriptor buffer.
-    Buffer EngineRenderer::cameraDescBuffer;
-    uint32_t EngineRenderer::cameraDescBufferAlignment;
-
-    // Instances for all the renderers.
-    Renderer* EngineRenderer::standardRenderer;
-    Renderer* EngineRenderer::raytracedRenderer;
-    Renderer* EngineRenderer::pathtracedRenderer;
-    Renderer* EngineRenderer::gaussianRenderer;
-
-	void EngineRenderer::setup(Scene* scene) {
-        EngineRenderer::scene = scene;
-		createSwapChain();
-        createDescriptorSets();
-        createRenderers();
-        initDescriptorSets();
+	EngineRenderer::EngineRenderer(const std::shared_ptr<Scene>& scene) : m_scene(scene), m_currentSwapchainIndex(0), m_context(EngineContext::GetInstance()) {
+		CreateSwapChain();
+        CreateDescriptorSets();
+        CreateRenderers();
+        InitDescriptorSets();
 	}
 
-    void EngineRenderer::cleanup() {
-        // Cleanup renderers.
-        delete static_cast<StandardRenderer*>(standardRenderer);
-        delete static_cast<PathTracedRenderer*>(pathtracedRenderer);
-        delete static_cast<GaussianRenderer*>(gaussianRenderer);
+    EngineRenderer::~EngineRenderer() {
         // Cleanup descriptor buffers
-        ResourceAllocator::destroyBuffer(cameraDescBuffer);
-        // Cleanup descriptor sets.
-        delete cameraDescSet;
-        delete texturesDescSet;
+        ResourceAllocator::destroyBuffer(m_cameraDescBuffer);
         // Cleanup swapchain.
-        swapchain.Destroy(EngineContext::getDevice());
+        m_swapchain.Destroy(m_context.getDevice());
     }
 
 	//***************************************************************************************//
 	//                                       Swapchain                                       //
 	//***************************************************************************************//
 
-    VkSurfaceFormatKHR selectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> availableFormats);
-	VkPresentModeKHR selectSwapChainPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
-	VkExtent2D selectSwapChainExtent(SDL_Window* window, const VkSurfaceCapabilitiesKHR capabilities);
+    VkSurfaceFormatKHR SelectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> availableFormats);
+	VkPresentModeKHR SelectSwapChainPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
+	VkExtent2D SelectSwapChainExtent(SDL_Window* window, const VkSurfaceCapabilitiesKHR capabilities);
 
-	void EngineRenderer::createSwapChain() {
-        QueueFamilyIndices indices = EngineContext::getQueueFamilyIndices();
-        SwapChainSupport swapChainSupport = EngineContext::getSwapChainSupport();
+	void EngineRenderer::CreateSwapChain() {
+        QueueFamilyIndices indices = m_context.getQueueFamilyIndices();
+        SwapChainSupport swapChainSupport = m_context.getSwapChainSupport();
 
-        VkSurfaceFormatKHR surfaceFormat = selectSwapChainSurfaceFormat(swapChainSupport.formats);
-        VkPresentModeKHR presentMode = selectSwapChainPresentMode(swapChainSupport.presentModes);
-        VkExtent2D extent = selectSwapChainExtent((SDL_Window*)EngineContext::getWindow().getHandle(), swapChainSupport.capabilities);
+        VkSurfaceFormatKHR surfaceFormat = SelectSwapChainSurfaceFormat(swapChainSupport.formats);
+        VkPresentModeKHR presentMode = SelectSwapChainPresentMode(swapChainSupport.presentModes);
+        VkExtent2D extent = SelectSwapChainExtent((SDL_Window*)m_context.getWindow().getHandle(), swapChainSupport.capabilities);
 
         uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
         // Make sure the image count does not exceed the maximum. Special value of 0 means no maximum.
@@ -77,7 +48,7 @@ namespace core {
 
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = EngineContext::getSurface();
+        createInfo.surface = m_context.getSurface();
         createInfo.minImageCount = imageCount;
         createInfo.imageFormat = surfaceFormat.format;
         createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -101,23 +72,23 @@ namespace core {
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-        VK_CHECK(vkCreateSwapchainKHR(EngineContext::getDevice(), &createInfo, nullptr, &swapchain.handle));
-        swapchain.format = surfaceFormat.format;
-        swapchain.extent = extent;
+        VK_CHECK(vkCreateSwapchainKHR(m_context.getDevice(), &createInfo, nullptr, &m_swapchain.handle));
+        m_swapchain.format = surfaceFormat.format;
+        m_swapchain.extent = extent;
 
         // Fetch all swap chain images handles.
-        VK_CHECK(vkGetSwapchainImagesKHR(EngineContext::getDevice(), swapchain.handle, &imageCount, nullptr));
-        swapchain.images.resize(imageCount);
-        swapchain.imageViews.resize(imageCount);
-        VK_CHECK(vkGetSwapchainImagesKHR(EngineContext::getDevice(), swapchain.handle, &imageCount, (VkImage*)swapchain.images.data()));
+        VK_CHECK(vkGetSwapchainImagesKHR(m_context.getDevice(), m_swapchain.handle, &imageCount, nullptr));
+        m_swapchain.images.resize(imageCount);
+        m_swapchain.imageViews.resize(imageCount);
+        VK_CHECK(vkGetSwapchainImagesKHR(m_context.getDevice(), m_swapchain.handle, &imageCount, (VkImage*)m_swapchain.images.data()));
 
         // Create swap chain image views.
-        for (size_t i = 0; i < swapchain.images.size(); i++) {
+        for (size_t i = 0; i < m_swapchain.images.size(); i++) {
             VkImageViewCreateInfo createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            createInfo.image = swapchain.images[i];
+            createInfo.image = m_swapchain.images[i];
             createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            createInfo.format = swapchain.format;
+            createInfo.format = m_swapchain.format;
             createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
             createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
             createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -128,11 +99,11 @@ namespace core {
             createInfo.subresourceRange.baseArrayLayer = 0;
             createInfo.subresourceRange.layerCount = 1;
 
-            VK_CHECK(vkCreateImageView(EngineContext::getDevice(), &createInfo, nullptr, &swapchain.imageViews[i]));
+            VK_CHECK(vkCreateImageView(m_context.getDevice(), &createInfo, nullptr, &m_swapchain.imageViews[i]));
         }
 	}
 
-    VkSurfaceFormatKHR selectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> availableFormats) {
+    VkSurfaceFormatKHR SelectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> availableFormats) {
         // Look for desired surface format from list of available formats.
         for (const auto& availableFormat : availableFormats) {
             if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
@@ -143,7 +114,7 @@ namespace core {
         return availableFormats[0];
     }
 
-    VkPresentModeKHR selectSwapChainPresentMode(const std::vector<VkPresentModeKHR> presentModes) {
+    VkPresentModeKHR SelectSwapChainPresentMode(const std::vector<VkPresentModeKHR> presentModes) {
         // Look for desired surface present mode from list of available present modes.
         for (const auto& availablePresentMode : presentModes) {
             if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
@@ -154,7 +125,7 @@ namespace core {
         return presentModes[0];
     }
 
-    VkExtent2D selectSwapChainExtent(SDL_Window* window, const VkSurfaceCapabilitiesKHR capabilities) {
+    VkExtent2D SelectSwapChainExtent(SDL_Window* window, const VkSurfaceCapabilitiesKHR capabilities) {
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
         }
@@ -174,7 +145,7 @@ namespace core {
         }
     }
 
-    void EngineRenderer::updateSwapchain() {
+    void EngineRenderer::UpdateSwapchain() {
         // TODO - recreate swapchain
     }
 
@@ -189,80 +160,80 @@ namespace core {
         glm::vec3 position;    // camera's world position
     };
 
-    void EngineRenderer::createDescriptorSets() {
+    void EngineRenderer::CreateDescriptorSets() {
         // Allocate camera descriptor set.
-        cameraDescSet = new DescriptorSet();
+        m_cameraDescSet = std::make_shared<DescriptorSet>();
         // Bind camera descriptor.
-        cameraDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        m_cameraDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
         // Create descriptor set.
-        cameraDescSet->create(EngineContext::getDevice(), MAX_FRAMES_IN_FLIGHT);
-        cameraDescSet->setName("Camera");
+        m_cameraDescSet->create(m_context.getDevice(), MAX_FRAMES_IN_FLIGHT);
+        m_cameraDescSet->setName("Camera");
 
         // Allocate texture descriptor set.
-        texturesDescSet = new DescriptorSet();
+        m_texturesDescSet = std::make_shared<DescriptorSet>();
         // Bind texture array descriptor.
-        texturesDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 32, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
+        m_texturesDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 32, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
         // Create descriptor set.
-        texturesDescSet->create(EngineContext::getDevice());
-        texturesDescSet->setName("Textures");
+        m_texturesDescSet->create(m_context.getDevice());
+        m_texturesDescSet->setName("Textures");
     }
 
-    void EngineRenderer::initDescriptorSets() {
+    void EngineRenderer::InitDescriptorSets() {
         // Create camera descriptor buffer.
         CameraDescriptorBuffer cameraUBO{};
-        cameraUBO.viewProj = scene->getMainCamera().getProjectionMatrix() * scene->getMainCamera().getViewMatrix();
-        cameraUBO.viewInverse = scene->getMainCamera().getViewInverseMatrix();
-        cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
+        cameraUBO.viewProj = m_scene->getMainCamera().getProjectionMatrix() * m_scene->getMainCamera().getViewMatrix();
+        cameraUBO.viewInverse = m_scene->getMainCamera().getViewInverseMatrix();
+        cameraUBO.projInverse = m_scene->getMainCamera().getProjectionInverseMatrix();
         // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
 
         // Allocate and map data to camera desc buffer.
-        cameraDescBufferAlignment = static_cast<uint32_t>(alignUp(EngineContext::getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment, sizeof(CameraDescriptorBuffer)));
+        m_cameraDescBufferAlignment = static_cast<uint32_t>(alignUp(m_context.getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment, sizeof(CameraDescriptorBuffer)));
         CameraDescriptorBuffer cameraUBOs[MAX_FRAMES_IN_FLIGHT]{ cameraUBO };
-        ResourceAllocator::createBuffer(cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, cameraDescBuffer, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-        ResourceAllocator::mapDataToBuffer(cameraDescBuffer, cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, &cameraUBO);
+        ResourceAllocator::createBuffer(m_cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, m_cameraDescBuffer, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        ResourceAllocator::mapDataToBuffer(m_cameraDescBuffer, m_cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, &cameraUBO);
 
         // Upload camera descriptor to all descriptor sets.
         VkDescriptorBufferInfo camDescInfos[MAX_FRAMES_IN_FLIGHT];
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            camDescInfos[i].buffer = cameraDescBuffer.buffer;
-            camDescInfos[i].offset = cameraDescBufferAlignment * i;
+            camDescInfos[i].buffer = m_cameraDescBuffer.buffer;
+            camDescInfos[i].offset = m_cameraDescBufferAlignment * i;
             camDescInfos[i].range = sizeof(CameraDescriptorBuffer);
-            cameraDescSet->writeBuffer(i, 0, camDescInfos[i]);
+            m_cameraDescSet->writeBuffer(i, 0, camDescInfos[i]);
         }
 
         // Upload texture sampler descriptors.
-        VkDescriptorImageInfo* globalTextureDescInfos = new VkDescriptorImageInfo[scene->getTextures().size()];
-        for (uint32_t i = 0; i < scene->getTextures().size(); i++) {
-            globalTextureDescInfos[i].sampler = scene->getTextures()[i]->getSampler();
-            globalTextureDescInfos[i].imageView = scene->getTextures()[i]->getImageView();
+        VkDescriptorImageInfo* globalTextureDescInfos = new VkDescriptorImageInfo[m_scene->getTextures().size()];
+        for (uint32_t i = 0; i < m_scene->getTextures().size(); i++) {
+            globalTextureDescInfos[i].sampler = m_scene->getTextures()[i]->getSampler();
+            globalTextureDescInfos[i].imageView = m_scene->getTextures()[i]->getImageView();
             globalTextureDescInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            texturesDescSet->writeImage(0, 0, globalTextureDescInfos[i], i);
+            m_texturesDescSet->writeImage(0, 0, globalTextureDescInfos[i], i);
         }
 
         // Update global desc sets.
-        cameraDescSet->update();
-        texturesDescSet->update();
+        m_cameraDescSet->update();
+        m_texturesDescSet->update();
         delete[] globalTextureDescInfos;
     }
 
-    void EngineRenderer::updateDescriptorSets() {
-        updateCameraDescriptor();
-        updateTextureArrayDescriptor();
+    void EngineRenderer::UpdateDescriptorSets() {
+        UpdateCameraDescriptor();
+        UpdateTextureArrayDescriptor();
     }
 
-    void EngineRenderer::updateCameraDescriptor() {
+    void EngineRenderer::UpdateCameraDescriptor() {
         // Create camera descriptor buffer.
         CameraDescriptorBuffer cameraUBO{};
-        cameraUBO.viewProj = scene->getMainCamera().getProjectionMatrix() * scene->getMainCamera().getViewMatrix();
-        cameraUBO.viewInverse = scene->getMainCamera().getViewInverseMatrix();
-        cameraUBO.projInverse = scene->getMainCamera().getProjectionInverseMatrix();
+        cameraUBO.viewProj = m_scene->getMainCamera().getProjectionMatrix() * m_scene->getMainCamera().getViewMatrix();
+        cameraUBO.viewInverse = m_scene->getMainCamera().getViewInverseMatrix();
+        cameraUBO.projInverse = m_scene->getMainCamera().getProjectionInverseMatrix();
         // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
 
         // Map new camera descriptor buffer data to current frame's camera descriptor buffer.
-        ResourceAllocator::mapDataToBuffer(cameraDescBuffer, sizeof(CameraDescriptorBuffer), &cameraUBO, cameraDescBufferAlignment * currentSwapchainIndex);
+        ResourceAllocator::mapDataToBuffer(m_cameraDescBuffer, sizeof(CameraDescriptorBuffer), &cameraUBO, m_cameraDescBufferAlignment * m_currentSwapchainIndex);
     }
 
-    void EngineRenderer::updateTextureArrayDescriptor() {
+    void EngineRenderer::UpdateTextureArrayDescriptor() {
         // TODO - check if scene has added or removed any textures.
         // TODO - if so, write updated texture array to descriptor set.
         // TODO - if not, do nothing.
@@ -272,25 +243,25 @@ namespace core {
     //                                       Renderers                                       //
     //***************************************************************************************//
 
-    void EngineRenderer::createRenderers() {
-        standardRenderer = new StandardRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ cameraDescSet, texturesDescSet });
-        pathtracedRenderer = new PathTracedRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ cameraDescSet, texturesDescSet });
-        gaussianRenderer = new GaussianRenderer(EngineContext::getDevice(), EngineContext::getGraphicsQueue(), EngineContext::getPresentQueue(), EngineRenderer::getSwapchain(), std::vector<DescriptorSet*>{ cameraDescSet });
+    void EngineRenderer::CreateRenderers() {
+        m_standardRenderer = std::make_unique<StandardRenderer>(m_context.getDevice(), m_context.getGraphicsQueue(), m_context.getPresentQueue(), m_swapchain, std::vector<std::shared_ptr<DescriptorSet>>{ m_cameraDescSet, m_texturesDescSet });
+        m_pathtracedRenderer = std::make_unique<PathTracedRenderer>(m_context.getDevice(), m_context.getGraphicsQueue(), m_context.getPresentQueue(), m_swapchain, std::vector<std::shared_ptr<DescriptorSet>>{ m_cameraDescSet, m_texturesDescSet });
+        m_gaussianRenderer = std::make_unique<GaussianRenderer>(m_context.getDevice(), m_context.getGraphicsQueue(), m_context.getPresentQueue(), m_swapchain, std::vector<std::shared_ptr<DescriptorSet>>{ m_cameraDescSet });
     }
 
-    void EngineRenderer::render(const uint8_t rendermode) {
+    void EngineRenderer::Render(const uint8_t rendermode) {
         // Update all descriptors.
-        updateDescriptorSets();
+        UpdateDescriptorSets();
 
         // Select renderer and render scene.
         switch (rendermode) {
-            case 0: standardRenderer->Render(currentSwapchainIndex, *scene); break;
-            case 1: pathtracedRenderer->Render(currentSwapchainIndex, *scene); break;
-            case 2: gaussianRenderer->Render(currentSwapchainIndex, *scene); break;
+            case 0: m_standardRenderer->Render(m_currentSwapchainIndex, *m_scene); break;
+            case 1: m_pathtracedRenderer->Render(m_currentSwapchainIndex, *m_scene); break;
+            case 2: m_gaussianRenderer->Render(m_currentSwapchainIndex, *m_scene); break;
             default: break;
         }
 
         // Set next swapchain frame index.
-        currentSwapchainIndex = (currentSwapchainIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+        m_currentSwapchainIndex = (m_currentSwapchainIndex + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 }

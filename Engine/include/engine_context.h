@@ -57,57 +57,67 @@ namespace core {
 
 	class EngineContext {
 	public:
-		static void setup();
-		static bool update();
-		static void cleanup();
+		static EngineContext& GetInstance() {
+			static EngineContext instance; // Guaranteed to be destroyed.
+			                               // Instantiated on first use.
+			return instance;
+		}
 
-		static Window& getWindow() { return window; }
-		static vk::Instance getInstance() { return instance; }
-		static vk::SurfaceKHR getSurface() { return surface; }
+		bool update();
 
-		static vk::PhysicalDevice getPhysicalDevice() { return physicalDevice; }
-		static vk::Device getDevice() { return device; }
-		static vk::Queue getGraphicsQueue() { return graphicsQueue; }
-		static vk::Queue getPresentQueue() { return presentQueue; }
+		Window& getWindow() { return window; }
+		vk::Instance getInstance() { return instance; }
+		vk::SurfaceKHR getSurface() { return surface; }
 
-		static PhysicalDeviceProperties getPhysicalDeviceProperties() { return physicalDeviceProperties; }
-		static QueueFamilyIndices getQueueFamilyIndices() { return queryQueueFamilies(physicalDevice); }
-		static SwapChainSupport getSwapChainSupport() { return querySwapChainSupport(physicalDevice); }
+		vk::PhysicalDevice getPhysicalDevice() { return physicalDevice; }
+		vk::Device getDevice() { return device; }
+		vk::Queue getGraphicsQueue() { return graphicsQueue; }
+		vk::Queue getPresentQueue() { return presentQueue; }
 
-		static void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
-		static void transitionImageLayout(const VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-		static void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+		PhysicalDeviceProperties getPhysicalDeviceProperties() { return physicalDeviceProperties; }
+		QueueFamilyIndices getQueueFamilyIndices() { return queryQueueFamilies(physicalDevice); }
+		SwapChainSupport getSwapChainSupport() { return querySwapChainSupport(physicalDevice); }
 
-		static void exit();
+		void createCommandBuffer(VkCommandBuffer* buffer, uint32_t amount);
+		void transitionImageLayout(const VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+		void transitionImageLayout(const VkCommandBuffer& commandBuffer, const VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+
+		void exit();
+
+		EngineContext(EngineContext const&) = delete; // Delete public default constructor.
+		void operator=(EngineContext const&) = delete; // Delete copy operator.
 
 	private:
-		static Window window;
-		static VkInstance instance;
-		static vk::SurfaceKHR surface;
-		static std::vector<const char*> instanceExtensions;
-		static std::vector<const char*> deviceExtensions;
-		static std::vector<const char*> layers;
+		EngineContext();
+		~EngineContext();
 
-		static PhysicalDeviceProperties physicalDeviceProperties;
-		static vk::PhysicalDevice physicalDevice;
-		static vk::Device device;
-		static vk::Queue graphicsQueue;
-		static vk::Queue presentQueue;
+		Window window;
+		VkInstance instance;
+		vk::SurfaceKHR surface;
+		std::vector<const char*> instanceExtensions;
+		std::vector<const char*> deviceExtensions;
+		std::vector<const char*> layers;
 
-		static vk::CommandPool commandPool;
+		PhysicalDeviceProperties physicalDeviceProperties;
+		vk::PhysicalDevice physicalDevice;
+		vk::Device device;
+		vk::Queue graphicsQueue;
+		vk::Queue presentQueue;
 
-		static void setupInstanceExtensions();
-		static void setupValidationLayers();
-		static void createInstance();
-		static void createSurface();
-		static void setupDeviceExtensions();
-		static void selectPhysicalDevice();
-		static void createLogicalDevice();
-		static void createCommandPool();
+		vk::CommandPool commandPool;
 
-		static bool isDeviceSuitable(VkPhysicalDevice device);
-		static QueueFamilyIndices queryQueueFamilies(VkPhysicalDevice device);
-		static bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-		static SwapChainSupport querySwapChainSupport(VkPhysicalDevice device);
+		void setupInstanceExtensions();
+		void setupValidationLayers();
+		void createInstance();
+		void createSurface();
+		void setupDeviceExtensions();
+		void selectPhysicalDevice();
+		void createLogicalDevice();
+		void createCommandPool();
+
+		bool isDeviceSuitable(VkPhysicalDevice device);
+		QueueFamilyIndices queryQueueFamilies(VkPhysicalDevice device);
+		bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+		SwapChainSupport querySwapChainSupport(VkPhysicalDevice device);
 	};
 }
