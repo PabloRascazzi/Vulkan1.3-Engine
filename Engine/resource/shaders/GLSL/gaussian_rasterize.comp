@@ -1,5 +1,4 @@
 #version 460
-#extension GL_KHR_vulkan_glsl : enable
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_scalar_block_layout : enable
@@ -15,19 +14,19 @@ layout(push_constant) uniform constants {
 } PushConstants;
 
 layout(binding = 0, set = 1, rgba32f) uniform image2D image;
-layout(buffer_reference, scalar) readonly buffer Geometry { uint size; Gaussian data[]; };
+layout(buffer_reference, scalar) readonly buffer GeometryProcessed { uint size; GaussianProcessed data[]; };
 layout(buffer_reference, scalar) readonly buffer KeyList { uint size; uint id[]; };
 
 layout (local_size_x = BLOCK_X, local_size_y = BLOCK_Y, local_size_z = 1) in;
 
 shared uint num_done;
-shared Gaussian collected_geom[BLOCK_SIZE];
+shared GaussianProcessed collected_geom[BLOCK_SIZE];
 
 void main() {
     const uvec3 group = gl_WorkGroupID;
     const uvec3 thread = gl_LocalInvocationID;
     const uint rank = gl_LocalInvocationIndex;
-    Geometry geom = Geometry(PushConstants.geomAddress);
+    GeometryProcessed geomProcessed = GeometryProcessed(PushConstants.geomAddress);
     KeyList key_list = KeyList(PushConstants.keysAddress);
 
     // Get min and max pixel range of current tile.
@@ -65,7 +64,7 @@ void main() {
         if(range.x + progress < range.y) {
             // TODO - uint coll_id = key_list.id[range.x + progress];
             uint coll_id = 0;
-            collected_geom[rank] = geom.data[coll_id];
+            collected_geom[rank] = geomProcessed.data[coll_id];
         }
 
         // Sync shared memory between threads.
