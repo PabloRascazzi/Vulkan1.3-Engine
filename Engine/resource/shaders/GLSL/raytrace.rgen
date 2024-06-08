@@ -6,9 +6,14 @@ layout(location = 0) rayPayloadEXT hitPayload {
 } prd;
 
 layout(binding = 0, set = 0) uniform CameraUniforms {
-    mat4 viewProj;    // view * projection
+    mat4 view;        // view matrix
     mat4 viewInverse; // inverse view matrix
+    mat4 proj;        // projection matrix
     mat4 projInverse; // inverse projection matrix
+    mat4 viewProj;    // view * projection
+    vec3 position;    // world position
+    vec2 focal;
+    vec2 tanFOV;
 } camera;
 layout(binding = 0, set = 1) uniform sampler2D textures[];
 layout(binding = 0, set = 2) uniform accelerationStructureEXT topLevelAS;

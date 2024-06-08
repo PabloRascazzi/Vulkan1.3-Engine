@@ -154,17 +154,21 @@ namespace core {
     //***************************************************************************************//
 
     struct CameraDescriptorBuffer {
-        glm::mat4 viewProj;    // view * projection
-        glm::mat4 viewInverse; // inverse view matrix
-        glm::mat4 projInverse; // inverse projection matrix
-        glm::vec3 position;    // camera's world position
+        glm::mat4 view;        // View matrix
+        glm::mat4 viewInverse; // Inverse view matrix
+        glm::mat4 proj;        // Projection matrix
+        glm::mat4 projInverse; // Inverse projection matrix
+        glm::mat4 viewProj;    // View matrix * projection matrix
+        glm::vec3 position;    // World position
+        glm::vec2 focal;       // TODO - explain
+        glm::vec2 tanFOV;      // TODO - explain
     };
 
     void EngineRenderer::CreateDescriptorSets() {
         // Allocate camera descriptor set.
         m_cameraDescSet = std::make_shared<DescriptorSet>();
         // Bind camera descriptor.
-        m_cameraDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+        m_cameraDescSet->addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT);
         // Create descriptor set.
         m_cameraDescSet->create(m_context.getDevice(), MAX_FRAMES_IN_FLIGHT);
         m_cameraDescSet->setName("Camera");
@@ -181,15 +185,17 @@ namespace core {
     void EngineRenderer::InitDescriptorSets() {
         // Create camera descriptor buffer.
         CameraDescriptorBuffer cameraUBO{};
-        cameraUBO.viewProj = m_scene->getMainCamera().getProjectionMatrix() * m_scene->getMainCamera().getViewMatrix();
-        cameraUBO.viewInverse = m_scene->getMainCamera().getViewInverseMatrix();
-        cameraUBO.projInverse = m_scene->getMainCamera().getProjectionInverseMatrix();
-        // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
+        cameraUBO.view = m_scene->getMainCamera().GetViewMatrix();
+        cameraUBO.viewInverse = m_scene->getMainCamera().GetViewInverseMatrix();
+        cameraUBO.proj = m_scene->getMainCamera().GetProjectionMatrix();
+        cameraUBO.projInverse = m_scene->getMainCamera().GetProjectionInverseMatrix();
+        cameraUBO.viewProj = m_scene->getMainCamera().GetProjectionMatrix() * m_scene->getMainCamera().GetViewMatrix();
+        cameraUBO.position = m_scene->getMainCamera().GetWorldPosition();
 
         // Allocate and map data to camera desc buffer.
-        m_cameraDescBufferAlignment = static_cast<uint32_t>(alignUp(m_context.getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment, sizeof(CameraDescriptorBuffer)));
+        m_cameraDescBufferAlignment = alignUp(sizeof(CameraDescriptorBuffer), m_context.getPhysicalDeviceProperties().deviceProperties.limits.minUniformBufferOffsetAlignment);
         CameraDescriptorBuffer cameraUBOs[MAX_FRAMES_IN_FLIGHT]{ cameraUBO };
-        ResourceAllocator::createBuffer(m_cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, m_cameraDescBuffer, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        ResourceAllocator::createBuffer(m_cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, m_cameraDescBuffer, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
         ResourceAllocator::mapDataToBuffer(m_cameraDescBuffer, m_cameraDescBufferAlignment * MAX_FRAMES_IN_FLIGHT, &cameraUBO);
 
         // Upload camera descriptor to all descriptor sets.
@@ -224,10 +230,12 @@ namespace core {
     void EngineRenderer::UpdateCameraDescriptor() {
         // Create camera descriptor buffer.
         CameraDescriptorBuffer cameraUBO{};
-        cameraUBO.viewProj = m_scene->getMainCamera().getProjectionMatrix() * m_scene->getMainCamera().getViewMatrix();
-        cameraUBO.viewInverse = m_scene->getMainCamera().getViewInverseMatrix();
-        cameraUBO.projInverse = m_scene->getMainCamera().getProjectionInverseMatrix();
-        // TODO - cameraUBO.position = scene->getMainCamera().getWorldPosition();
+        cameraUBO.view = m_scene->getMainCamera().GetViewMatrix();
+        cameraUBO.viewInverse = m_scene->getMainCamera().GetViewInverseMatrix();
+        cameraUBO.proj = m_scene->getMainCamera().GetProjectionMatrix();
+        cameraUBO.projInverse = m_scene->getMainCamera().GetProjectionInverseMatrix();
+        cameraUBO.viewProj = m_scene->getMainCamera().GetProjectionMatrix() * m_scene->getMainCamera().GetViewMatrix();
+        cameraUBO.position = m_scene->getMainCamera().GetWorldPosition();
 
         // Map new camera descriptor buffer data to current frame's camera descriptor buffer.
         ResourceAllocator::mapDataToBuffer(m_cameraDescBuffer, sizeof(CameraDescriptorBuffer), &cameraUBO, m_cameraDescBufferAlignment * m_currentSwapchainIndex);

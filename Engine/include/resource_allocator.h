@@ -7,6 +7,7 @@ namespace core {
 	struct Buffer {
 		VkBuffer buffer = VK_NULL_HANDLE;
 		VmaAllocation allocation = VK_NULL_HANDLE;
+		VmaAllocationInfo allocationInfo;
 		VkDeviceAddress getDeviceAddress();
 		bool isCreated();
 	};
@@ -20,6 +21,7 @@ namespace core {
 		VkBuffer buffer = VK_NULL_HANDLE;
 		VmaAllocation allocation = VK_NULL_HANDLE;
 		VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
+		VmaAllocationInfo allocationInfo;
 		VkDeviceAddress getDeviceAddress();
 	};
 
@@ -28,13 +30,13 @@ namespace core {
 		static void setup(const VkInstance& instance, const VkPhysicalDevice& physicalDevice, const VkDevice& device, const uint32_t familyQueueIndex);
 		static void cleanup();
 
-		static void createBuffer(const VkDeviceSize& size, Buffer& buffer, VkBufferUsageFlags usage);
-		static void createBuffer(const VkDeviceSize& size, VkBuffer& buffer, VmaAllocation& allocation, VkBufferUsageFlags usage);
+		static void createBuffer(const VkDeviceSize& size, Buffer& buffer, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
+		static void createBuffer(const VkDeviceSize& size, VkBuffer& buffer, VmaAllocation& allocation, VmaAllocationInfo& allocInfo, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
 		static void createBufferWithAlignment(const VkDeviceSize& size, const VkDeviceSize& minAlignment, Buffer& buffer, VkBufferUsageFlags usage);
 		static void createBufferWithAlignment(const VkDeviceSize& size, const VkDeviceSize& minAlignment, VkBuffer& buffer, VmaAllocation& allocation, VkBufferUsageFlags usage);
-		static void mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const uint32_t& offset = 0);
-		static void createAndStageBuffer(const VkDeviceSize& size, const void* data, Buffer& buffer, VkBufferUsageFlags usage);
-		static void createAndStageBuffer(const VkCommandBuffer& commandBuffer, const VkDeviceSize& size, const void* data, Buffer& srcBuffer, Buffer& dstBuffer, VkBufferUsageFlags usage);
+		static void mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const size_t& offset = 0);
+		static void createAndStageBuffer(const VkDeviceSize& size, const void* data, Buffer& buffer, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
+		static void createAndStageBuffer(const VkCommandBuffer& commandBuffer, const VkDeviceSize& size, const void* data, Buffer& srcBuffer, Buffer& dstBuffer, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
 		static VkDeviceAddress getBufferDeviceAddress(const VkBuffer& buffer);
 		static VkDeviceAddress getBufferDeviceAddress(const Buffer& buffer);
 		static void destroyBuffer(VkBuffer& buffer, VmaAllocation& allocation);

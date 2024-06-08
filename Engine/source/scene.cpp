@@ -32,7 +32,7 @@ namespace core {
 	void Scene::update() {
 		// Update all cameras.
 		for (auto& camera : cameras) {
-			camera->update();
+			camera->Update();
 		}
 	}
 

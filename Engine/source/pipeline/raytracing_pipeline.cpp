@@ -150,7 +150,7 @@ namespace core {
 		// Create SBT buffer.
 		VkDeviceSize sbtSize = m_sbt.rgenRegion.size + m_sbt.missRegion.size + m_sbt.hitRegion.size + m_sbt.callRegion.size;
 		VkBufferUsageFlags stbBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
-		ResourceAllocator::createBuffer(sbtSize, m_sbt.buffer, stbBufferUsage);
+		ResourceAllocator::createBuffer(sbtSize, m_sbt.buffer, stbBufferUsage, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 		Debugger::setObjectName(m_sbt.buffer.buffer, "SBT");
 		
 		// Find the SBT addresses of each group.

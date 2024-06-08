@@ -38,7 +38,7 @@ namespace core {
 
 		// Descriptor buffers.
 		Buffer m_cameraDescBuffer;
-		uint32_t m_cameraDescBufferAlignment;
+		size_t m_cameraDescBufferAlignment;
 
 		// Instances for all the renderers.
 		std::unique_ptr<StandardRenderer> m_standardRenderer;

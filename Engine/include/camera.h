@@ -7,20 +7,22 @@ namespace core {
 	class Camera {
 	public:
 		Camera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n = 0.01f, const float& f = 1000.f);
-		void update();
+		void Update();
 
-		glm::mat4& getViewMatrix() { return this->view; }
-		glm::mat4& getViewInverseMatrix() { return this->viewInverse; }
-		glm::mat4& getProjectionMatrix() { return this->projection; }
-		glm::mat4& getProjectionInverseMatrix() { return this->projectionInverse; }
+		glm::mat4& GetViewMatrix() { return m_view; }
+		glm::mat4& GetViewInverseMatrix() { return m_viewInverse; }
+		glm::mat4& GetProjectionMatrix() { return m_projection; }
+		glm::mat4& GetProjectionInverseMatrix() { return m_projectionInverse; }
+		glm::vec3& GetWorldPosition() { return m_position; }
 
 	private:
-		glm::mat4 view;
-		glm::mat4 viewInverse;
-		glm::mat4 projection;
-		glm::mat4 projectionInverse;
+		glm::mat4 m_view;
+		glm::mat4 m_viewInverse;
+		glm::mat4 m_projection;
+		glm::mat4 m_projectionInverse;
+		glm::vec3 m_position;
 
-		static glm::mat4 getPerspective(float vertical_fov, float aspect_ratio, float n, float f);
+		static glm::mat4 GetPerspective(float vertical_fov, float aspect_ratio, float n, float f);
 
 	};
 }

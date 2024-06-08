@@ -6,14 +6,10 @@
 
 namespace core {
 
-	Camera::Camera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n, const float& f) {
-		this->view = glm::inverse(transform);
-		this->viewInverse = transform;
-		this->projection = getPerspective(fov, aspectRatio, n, f);
-		this->projectionInverse = glm::inverse(projection);
-	}
+	Camera::Camera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n, const float& f) : 
+		m_view(glm::inverse(transform)), m_viewInverse(transform), m_projection(GetPerspective(fov, aspectRatio, n, f)), m_projectionInverse(glm::inverse(m_projection)) {}
 
-	void Camera::update() {
+	void Camera::Update() {
 		// Calculate translation amount.
 		float movementSpeed = 10.0f;
 		float delta = movementSpeed * static_cast<float>(Time::getDT());
@@ -31,12 +27,13 @@ namespace core {
 			(Input::getKey(INPUT_KEY_COMMA) ? delta : 0.0) + (Input::getKey(INPUT_KEY_PERIOD) ? -delta : 0.0));
 		
 		// Create tranformation matrix.
-		glm::mat4 transform = glm::rotate(glm::rotate(glm::rotate(glm::translate(viewInverse, movement), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f)), glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-		this->view = glm::inverse(transform);
-		this->viewInverse = transform;
+		glm::mat4 transform = glm::rotate(glm::rotate(glm::rotate(glm::translate(m_viewInverse, movement), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f)), glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+		m_view = glm::inverse(transform);
+		m_viewInverse = transform;
+		m_position = glm::vec3(m_viewInverse[3]);
 	}
 
-	glm::mat4 Camera::getPerspective(float vertical_fov, float aspect_ratio, float n, float f) {
+	glm::mat4 Camera::GetPerspective(float vertical_fov, float aspect_ratio, float n, float f) {
 		float fov_rad = vertical_fov * 2.0f * static_cast<float>(M_PI) / 360.0f;
 		float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
 

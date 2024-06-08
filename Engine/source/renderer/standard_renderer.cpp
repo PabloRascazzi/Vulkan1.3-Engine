@@ -179,8 +179,8 @@ namespace core {
                 // Upload push constants
                 StandardPushConstant constant;
                 constant.world = object.transform;
-                constant.view = scene.getMainCamera().getViewMatrix();
-                constant.proj = scene.getMainCamera().getProjectionMatrix();
+                constant.view = scene.getMainCamera().GetViewMatrix();
+                constant.proj = scene.getMainCamera().GetProjectionMatrix();
                 constant.materialAddress = object.materials.at(i)->getBuffer().getDeviceAddress();
                 vkCmdPushConstants(commandBuffer, m_pipeline->GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, constant.getSize(), &constant);
 

@@ -45,9 +45,10 @@ struct Gaussian {
 #else 
     float[SPHERICAL_HARMONICS_MAX_COEF] sh;
 #endif
+	float opacity;
 };
 
-struct GaussianProcessed {
+struct ProcessedGaussian {
     vec2 mean2D;
     vec3 conic;
     vec3 color;

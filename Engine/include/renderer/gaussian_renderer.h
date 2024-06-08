@@ -12,7 +12,9 @@ namespace core {
 
 	struct GaussianPreprocessPushConstant {
 		VkDeviceAddress geomAddress;
-		VkDeviceAddress keysAddress;
+		VkDeviceAddress bufferAddress;
+		glm::uvec2 resolution;
+		uint32_t numGaussians;
 
 		static uint32_t getSize() {
 			return sizeof(GaussianPreprocessPushConstant);
@@ -20,9 +22,8 @@ namespace core {
 	};
 
 	struct GaussianRasterizePushConstant {
+		VkDeviceAddress bufferAddress;
 		glm::uvec2 resolution;
-		VkDeviceAddress geomAddress;
-		VkDeviceAddress keysAddress;
 
 		static uint32_t getSize() {
 			return sizeof(GaussianRasterizePushConstant);
@@ -46,8 +47,9 @@ namespace core {
 		std::shared_ptr<DescriptorSet> m_gsDescSet;
 		std::shared_ptr<DescriptorSet> m_postDescSet;
 
-		Buffer m_geomBuffer;
-		Buffer m_keysBuffer;
+		Buffer m_geomBuffer; // Gaussian geometry.
+		Buffer m_procBuffer; // Preprocessed Gaussian geometry.
+		Buffer m_keysBuffer; // Gaussian keys (Id + Depth).
 
 		void CreateRenderPass();
 		void CreateFramebuffers();

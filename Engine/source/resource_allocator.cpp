@@ -62,7 +62,7 @@ namespace core {
     //                                   Buffer Allocation                                   //
     //***************************************************************************************//
 
-    void ResourceAllocator::createBuffer(const VkDeviceSize& size, VkBuffer& buffer, VmaAllocation& allocation, VkBufferUsageFlags usage) {
+    void ResourceAllocator::createBuffer(const VkDeviceSize& size, VkBuffer& buffer, VmaAllocation& allocation, VmaAllocationInfo& allocInfo, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags) {
         VkBufferCreateInfo bufferCreateInfo{};
 		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		bufferCreateInfo.size = size;
@@ -71,14 +71,13 @@ namespace core {
         
         VmaAllocationCreateInfo allocCreateInfo{};
         allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        allocCreateInfo.flags = flags;
 
-        VmaAllocationInfo allocInfo;
         VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, &allocInfo));
     }
 
-    void ResourceAllocator::createBuffer(const VkDeviceSize& size, Buffer& buffer, VkBufferUsageFlags usage) {
-        createBuffer(size, buffer.buffer, buffer.allocation, usage);
+    void ResourceAllocator::createBuffer(const VkDeviceSize& size, Buffer& buffer, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags) {
+        createBuffer(size, buffer.buffer, buffer.allocation, buffer.allocationInfo, usage, flags);
     }
 
     void ResourceAllocator::createBufferWithAlignment(const VkDeviceSize& size, const VkDeviceSize& minAlignment, VkBuffer& buffer, VmaAllocation& allocation, VkBufferUsageFlags usage) {
@@ -100,22 +99,22 @@ namespace core {
         createBufferWithAlignment(size, minAlignment, buffer.buffer, buffer.allocation, usage);
     }
 
-    void ResourceAllocator::mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const uint32_t& offset) {
+    void ResourceAllocator::mapDataToBuffer(const Buffer& buffer, const VkDeviceSize& size, const void* data, const size_t& offset) {
         uint8_t* location;
         vmaMapMemory(allocator, buffer.allocation, (void**)&location);
         memcpy(location+offset, data, size);
         vmaUnmapMemory(allocator, buffer.allocation);
     }
 
-    void ResourceAllocator::createAndStageBuffer(const VkCommandBuffer& commandBuffer, const VkDeviceSize& size, const void* data, Buffer& srcBuffer, Buffer& dstBuffer, VkBufferUsageFlags usage) {
+    void ResourceAllocator::createAndStageBuffer(const VkCommandBuffer& commandBuffer, const VkDeviceSize& size, const void* data, Buffer& srcBuffer, Buffer& dstBuffer, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags) {
         // Create source buffer.
-        createBuffer(size, srcBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+        createBuffer(size, srcBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
         
         // Map data to source buffer.
         mapDataToBuffer(srcBuffer, size, data);
 
         // Create destination buffer.
-        createBuffer(size, dstBuffer, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage);
+        createBuffer(size, dstBuffer, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage, flags);
 
         // Copy data from source buffer to destination buffer.
         VkBufferCopy copyRegion{};
@@ -125,7 +124,7 @@ namespace core {
         vkCmdCopyBuffer(commandBuffer, srcBuffer.buffer, dstBuffer.buffer, 1, &copyRegion);
     }
 
-    void ResourceAllocator::createAndStageBuffer(const VkDeviceSize& size, const void* data, Buffer& buffer, VkBufferUsageFlags usage) {
+    void ResourceAllocator::createAndStageBuffer(const VkDeviceSize& size, const void* data, Buffer& buffer, VkBufferUsageFlags usage, VmaAllocationCreateFlags flags) {
         // Create new command buffer.
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -156,7 +155,7 @@ namespace core {
         VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
         Buffer srcBuffer;
-        createAndStageBuffer(commandBuffer, size, data, srcBuffer, buffer, usage);
+        createAndStageBuffer(commandBuffer, size, data, srcBuffer, buffer, usage, flags);
 
         VK_CHECK(vkEndCommandBuffer(commandBuffer));
 
@@ -308,7 +307,7 @@ namespace core {
     void ResourceAllocator::createAndStageImage2D(const VkCommandBuffer& commandBuffer, const VkExtent2D& extent, const VkFormat& format, const uint32_t mipLevels, const void* data, Buffer& srcBuffer, Image& dstImage, VkImageUsageFlags usage) {
         // Create source buffer.
         VkDeviceSize size = extent.width * extent.height * 4;
-        createBuffer(size, srcBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+        createBuffer(size, srcBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
         
         // Map data to source buffer.
         mapDataToBuffer(srcBuffer, size, data);
@@ -399,7 +398,7 @@ namespace core {
     //***************************************************************************************//
 
     void ResourceAllocator::createAccelerationStructure(const VkDeviceSize& size, AccelerationStructure& accelStruct, const VkAccelerationStructureTypeKHR& type) {
-        createBuffer(size, accelStruct.buffer, accelStruct.allocation, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+        createBuffer(size, accelStruct.buffer, accelStruct.allocation, accelStruct.allocationInfo, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 		
         VkAccelerationStructureCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;

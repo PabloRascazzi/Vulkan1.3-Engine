@@ -7,12 +7,11 @@
 
 #include "gaussian_common.h"
 
-const uint num_gaussians = 0; // TODO
-
 layout(push_constant) uniform constants {
-    uvec2 resolution;
     uint64_t geomAddress;
-    uint64_t keysAddress;
+    uint64_t bufferAddress;
+    uvec2 resolution;
+    uint numGaussians;
 } PushConstants;
 
 layout(binding = 0, set = 0) uniform CameraUniforms {
@@ -26,9 +25,9 @@ layout(binding = 0, set = 0) uniform CameraUniforms {
     vec2 tanFOV;
 } camera;
 
-layout(buffer_reference, scalar) buffer Geometry { uint size; Gaussian data[]; };
-layout(buffer_reference, scalar) buffer GeometryProcessed { uint size; GaussianProcessed data[]; };
-layout(buffer_reference, scalar) buffer KeyList { uint size; uint id[]; };
+layout(buffer_reference, scalar) buffer Geometry { Gaussian data[]; };
+layout(buffer_reference, scalar) buffer ProcessedGeometry { ProcessedGaussian data[]; };
+layout(buffer_reference, scalar) buffer KeyList { uint id[]; };
 
 layout (local_size_x = BLOCK_SIZE, local_size_y = 1, local_size_z = 1) in;
 
@@ -41,7 +40,7 @@ void main() {
     const uint idx = gl_GlobalInvocationID.x;
 
     // Quit if current thread is not needed. 
-    if (idx >= num_gaussians) return;
+    if (idx >= PushConstants.numGaussians) return;
 
     // Fetch Gaussian from global memory.
     Geometry geom = Geometry(PushConstants.geomAddress);
@@ -80,7 +79,12 @@ void main() {
     // Obtain color by converting spherical harmonics coefficients to RGB.
     vec3 color = ConvertSphericalHarmonicsToRGB(pos, camera.position, gaussian.sh);
 
-    // TODO - Store processed Gaussian data.
+    // Store processed Gaussian data.
+    ProcessedGeometry processed_geom = ProcessedGeometry(PushConstants.bufferAddress);
+    processed_geom.data[idx] = ProcessedGaussian(pos_ss, conic, color, gaussian.opacity);
+    // TODO - save depth.
+    // TODO - save radii.
+    // TODO - save tiles touched.
 }
 
 Rect2D ScreenSpaceRectFromRadius(vec2 pos, float radius, vec2 resolution) {

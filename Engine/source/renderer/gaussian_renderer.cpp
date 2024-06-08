@@ -5,7 +5,7 @@
 
 namespace core {
 
-    const uint32_t num_gaussians = 0; // TODO
+    const uint32_t num_gaussians = 2; // TODO
 
 	GaussianRenderer::GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<std::shared_ptr<DescriptorSet>>& globalDescSets) :
 		Renderer(device, computeQueue, presentQueue, swapchain), m_globalDescSets(globalDescSets) {
@@ -19,6 +19,7 @@ namespace core {
 	GaussianRenderer::~GaussianRenderer() {
         // Cleanup intermediary buffers.
         ResourceAllocator::destroyBuffer(m_geomBuffer);
+        ResourceAllocator::destroyBuffer(m_procBuffer);
         ResourceAllocator::destroyBuffer(m_keysBuffer);
 	}
 
@@ -102,27 +103,32 @@ namespace core {
     }
 
     void GaussianRenderer::CreatePipeline() {
-        // Create list of descriptor set layouts for gaussian rasterization compute pipeline.
-        std::vector<VkDescriptorSetLayout> gsLayouts;
-        for (const auto& descSet : m_globalDescSets) gsLayouts.push_back(descSet->getSetLayout());
-        gsLayouts.push_back(m_gsDescSet->getSetLayout());
+        // Create list of descriptor set layouts for gaussian compute pipelines.
+        std::vector<VkDescriptorSetLayout> preprocessLayouts{ m_globalDescSets[0]->getSetLayout() };
+        std::vector<VkDescriptorSetLayout> rasterizeLayouts{ m_gsDescSet->getSetLayout() };
 
         // Create list of descriptor set layouts for post pipeline.
         std::vector<VkDescriptorSetLayout> postLayouts{ m_postDescSet->getSetLayout() };
 
         // Create pipelines.
-        m_preprocessPipeline = std::make_unique<ComputePipeline>(m_device, "gaussian_preprocess", gsLayouts, sizeof(GaussianPreprocessPushConstant));
-        m_rasterizePipeline = std::make_unique<ComputePipeline>(m_device, "gaussian_rasterize", gsLayouts, sizeof(GaussianRasterizePushConstant));
+        m_preprocessPipeline = std::make_unique<ComputePipeline>(m_device, "gaussian_preprocess", preprocessLayouts, sizeof(GaussianPreprocessPushConstant));
+        m_rasterizePipeline = std::make_unique<ComputePipeline>(m_device, "gaussian_rasterize", rasterizeLayouts, sizeof(GaussianRasterizePushConstant));
         m_postPipeline = std::make_unique<PostPipeline>(m_device, "postShader", postLayouts, m_renderPass, m_swapchain.extent);
     }
 
     void GaussianRenderer::InitDescriptorSets(Scene& scene) {
-        // Initialize itermediary buffers.
-        VkDeviceSize geomSize = (num_gaussians * sizeof(Gaussian)) + sizeof(uint32_t);
-        ResourceAllocator::createBuffer(geomSize, m_geomBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+        // Initialize geometry buffer.
+        Gaussian geomData[num_gaussians] = {
+            { glm::vec3(0, 0, 0), glm::vec3(1, 1, 1), glm::vec4(0, 0, 0, 1), {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0}, 1.0f },
+            { glm::vec3(1, 0, 0), glm::vec3(1, 1, 1), glm::vec4(0, 0, 0, 1), {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0}, 0.9f }
+        };
+        ResourceAllocator::createAndStageBuffer(num_gaussians * sizeof(Gaussian), geomData, m_geomBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
         Debugger::setObjectName(m_geomBuffer.buffer, "[Buffer] Gaussian Geometry");
-        VkDeviceSize keysSize = (num_gaussians + 1) * sizeof(uint32_t);
-        ResourceAllocator::createBuffer(geomSize, m_keysBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+
+        // Initialize itermediary buffers.
+        ResourceAllocator::createBuffer(num_gaussians * sizeof(ProcessedGaussian), m_procBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
+        Debugger::setObjectName(m_procBuffer.buffer, "[Buffer] Preprocessed Gaussian Geometry");
+        ResourceAllocator::createBuffer(num_gaussians * sizeof(uint64_t), m_keysBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
         Debugger::setObjectName(m_keysBuffer.buffer, "[Buffer] Gaussian Keys");
 
         // Initialize descriptors for every frames in flight.
@@ -168,7 +174,9 @@ namespace core {
         // Upload push constants
         GaussianPreprocessPushConstant preprocessConstant;
         preprocessConstant.geomAddress = m_geomBuffer.getDeviceAddress();
-        preprocessConstant.keysAddress = m_keysBuffer.getDeviceAddress();
+        preprocessConstant.bufferAddress = m_procBuffer.getDeviceAddress();
+        preprocessConstant.resolution = glm::uvec2(m_swapchain.extent.width, m_swapchain.extent.height);
+        preprocessConstant.numGaussians = num_gaussians;
         vkCmdPushConstants(commandBuffer, m_preprocessPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, preprocessConstant.getSize(), &preprocessConstant);
 
         // Compute Gaussian Preprocessing
@@ -199,14 +207,13 @@ namespace core {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_rasterizePipeline->GetHandle());
 
         // Bind descriptor sets.
-        std::vector<VkDescriptorSet> rasterizeDescSets{ m_globalDescSets[0]->getHandle(currentFrame), m_gsDescSet->getHandle(currentFrame) };
+        std::vector<VkDescriptorSet> rasterizeDescSets{ m_gsDescSet->getHandle(currentFrame) };
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_rasterizePipeline->GetLayout(), 0, static_cast<uint32_t>(rasterizeDescSets.size()), rasterizeDescSets.data(), 0, nullptr);
 
         // Upload push constants
         GaussianRasterizePushConstant rasterizeConstant;
+        rasterizeConstant.bufferAddress = m_procBuffer.getDeviceAddress();
         rasterizeConstant.resolution = glm::uvec2(m_swapchain.extent.width, m_swapchain.extent.height);
-        rasterizeConstant.geomAddress = m_geomBuffer.getDeviceAddress();
-        rasterizeConstant.keysAddress = m_keysBuffer.getDeviceAddress();
         vkCmdPushConstants(commandBuffer, m_rasterizePipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, rasterizeConstant.getSize(), &rasterizeConstant);
 
         // Compute Gaussian Rasterization
