@@ -159,9 +159,9 @@ namespace core {
         glm::mat4 proj;        // Projection matrix
         glm::mat4 projInverse; // Inverse projection matrix
         glm::mat4 viewProj;    // View matrix * projection matrix
+        glm::vec2 focal;       // Focal length = Resolution / (2.0 * tan(FOV * 0.5))
+        glm::vec2 tanFOV;      // Tangent of half FOV = tan(FOV * 0.5)
         glm::vec3 position;    // World position
-        glm::vec2 focal;       // TODO - explain
-        glm::vec2 tanFOV;      // TODO - explain
     };
 
     void EngineRenderer::CreateDescriptorSets() {
@@ -190,6 +190,8 @@ namespace core {
         cameraUBO.proj = m_scene->getMainCamera().GetProjectionMatrix();
         cameraUBO.projInverse = m_scene->getMainCamera().GetProjectionInverseMatrix();
         cameraUBO.viewProj = m_scene->getMainCamera().GetProjectionMatrix() * m_scene->getMainCamera().GetViewMatrix();
+        cameraUBO.tanFOV = glm::tan(m_scene->getMainCamera().GetFOV() * 0.5f);
+        cameraUBO.focal = glm::vec2(m_swapchain.extent.width, m_swapchain.extent.height) / (2.0f * cameraUBO.tanFOV);
         cameraUBO.position = m_scene->getMainCamera().GetWorldPosition();
 
         // Allocate and map data to camera desc buffer.
@@ -235,6 +237,8 @@ namespace core {
         cameraUBO.proj = m_scene->getMainCamera().GetProjectionMatrix();
         cameraUBO.projInverse = m_scene->getMainCamera().GetProjectionInverseMatrix();
         cameraUBO.viewProj = m_scene->getMainCamera().GetProjectionMatrix() * m_scene->getMainCamera().GetViewMatrix();
+        cameraUBO.tanFOV = glm::tan(m_scene->getMainCamera().GetFOV() * 0.5f);
+        cameraUBO.focal = cameraUBO.focal = glm::vec2(m_swapchain.extent.width, m_swapchain.extent.height) / (2.0f * cameraUBO.tanFOV);
         cameraUBO.position = m_scene->getMainCamera().GetWorldPosition();
 
         // Map new camera descriptor buffer data to current frame's camera descriptor buffer.

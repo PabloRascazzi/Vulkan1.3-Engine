@@ -20,9 +20,9 @@ layout(binding = 0, set = 0) uniform CameraUniforms {
     mat4 projection;
     mat4 projectionInverse;
     mat4 viewProjection;
-    vec3 position;
     vec2 focal;
     vec2 tanFOV;
+    vec3 position;
 } camera;
 
 layout(buffer_reference, scalar) buffer Geometry { Gaussian data[]; };

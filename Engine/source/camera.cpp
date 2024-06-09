@@ -6,8 +6,13 @@
 
 namespace core {
 
-	Camera::Camera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n, const float& f) : 
-		m_view(glm::inverse(transform)), m_viewInverse(transform), m_projection(GetPerspective(fov, aspectRatio, n, f)), m_projectionInverse(glm::inverse(m_projection)) {}
+	Camera::Camera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n, const float& f) :
+		m_view(glm::inverse(transform)),
+		m_viewInverse(transform),
+		m_fov(glm::radians(fov)),
+		m_projection(GetPerspective(m_fov, aspectRatio, n, f)),
+		m_projectionInverse(glm::inverse(m_projection)),
+		m_position(glm::vec3(m_viewInverse[3])) {}
 
 	void Camera::Update() {
 		// Calculate translation amount.
@@ -33,9 +38,8 @@ namespace core {
 		m_position = glm::vec3(m_viewInverse[3]);
 	}
 
-	glm::mat4 Camera::GetPerspective(float vertical_fov, float aspect_ratio, float n, float f) {
-		float fov_rad = vertical_fov * 2.0f * static_cast<float>(M_PI) / 360.0f;
-		float focal_length = 1.0f / std::tan(fov_rad / 2.0f);
+	glm::mat4 Camera::GetPerspective(const glm::vec2& fov, float aspect_ratio, float n, float f) {
+		float focal_length = 1.0f / std::tan(fov.x / 2.0f);
 
 		float x = focal_length / aspect_ratio;
 		float y = -focal_length;
