@@ -24,6 +24,7 @@ namespace core {
 	struct GaussianRasterizePushConstant {
 		VkDeviceAddress bufferAddress;
 		glm::uvec2 resolution;
+		uint32_t numGaussians;
 
 		static uint32_t getSize() {
 			return sizeof(GaussianRasterizePushConstant);

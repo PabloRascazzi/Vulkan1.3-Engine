@@ -50,8 +50,8 @@ void main() {
 
     // Transform position by camera's projection.
     vec3 pos = gaussian.position;
-    vec4 pos_hom = camera.projection * vec4(pos, 1.0);
-    float pos_w = 1.0 / (pos_hom.w + 0.0000001);
+    vec4 pos_hom = camera.projection * camera.view * vec4(pos, 1.0);
+    float pos_w = 1.0 / pos_hom.w; // TODO - check if necessary to add offset.
     vec3 pos_proj = vec3(pos_hom.x * pos_w, pos_hom.y * pos_w, pos_hom.z * pos_w);
 
     // Compute 3D covariance matrix.

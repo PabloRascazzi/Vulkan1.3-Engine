@@ -5,7 +5,12 @@
 
 namespace core {
 
-    const uint32_t num_gaussians = 2; // TODO
+    const uint32_t numGaussians = 3;
+    Gaussian geomData[numGaussians] = {
+            { glm::vec3(0, 0, 0), glm::vec3(1, 1, 1), glm::vec4(0, 0, 0, 1), {0.4823f, 0.2470f, 0.0f,0,0,0,0,0,0,0,0,0,0,0,0,0}, 1.0f },
+            { glm::vec3(10, 0, 0), glm::vec3(1, 1, 1), glm::vec4(0, 0, 0, 1), {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0}, 0.9f },
+            { glm::vec3(-10, 0, 0), glm::vec3(1, 1, 1), glm::vec4(0, 0, 0, 1), {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0}, 0.5f }
+    };
 
 	GaussianRenderer::GaussianRenderer(VkDevice device, VkQueue computeQueue, VkQueue presentQueue, Swapchain& swapchain, const std::vector<std::shared_ptr<DescriptorSet>>& globalDescSets) :
 		Renderer(device, computeQueue, presentQueue, swapchain), m_globalDescSets(globalDescSets) {
@@ -118,17 +123,13 @@ namespace core {
 
     void GaussianRenderer::InitDescriptorSets(Scene& scene) {
         // Initialize geometry buffer.
-        Gaussian geomData[num_gaussians] = {
-            { glm::vec3(0, 0, 0), glm::vec3(1, 1, 1), glm::vec4(0, 0, 0, 1), {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0}, 1.0f },
-            { glm::vec3(1, 0, 0), glm::vec3(1, 1, 1), glm::vec4(0, 0, 0, 1), {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0}, 0.9f }
-        };
-        ResourceAllocator::createAndStageBuffer(num_gaussians * sizeof(Gaussian), geomData, m_geomBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
+        ResourceAllocator::createAndStageBuffer(numGaussians * sizeof(Gaussian), geomData, m_geomBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
         Debugger::setObjectName(m_geomBuffer.buffer, "[Buffer] Gaussian Geometry");
 
         // Initialize itermediary buffers.
-        ResourceAllocator::createBuffer(num_gaussians * sizeof(ProcessedGaussian), m_procBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
+        ResourceAllocator::createBuffer(numGaussians * sizeof(ProcessedGaussian), m_procBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
         Debugger::setObjectName(m_procBuffer.buffer, "[Buffer] Preprocessed Gaussian Geometry");
-        ResourceAllocator::createBuffer(num_gaussians * sizeof(uint64_t), m_keysBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+        ResourceAllocator::createBuffer(numGaussians * sizeof(uint64_t), m_keysBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
         Debugger::setObjectName(m_keysBuffer.buffer, "[Buffer] Gaussian Keys");
 
         // Initialize descriptors for every frames in flight.
@@ -176,11 +177,11 @@ namespace core {
         preprocessConstant.geomAddress = m_geomBuffer.getDeviceAddress();
         preprocessConstant.bufferAddress = m_procBuffer.getDeviceAddress();
         preprocessConstant.resolution = glm::uvec2(m_swapchain.extent.width, m_swapchain.extent.height);
-        preprocessConstant.numGaussians = num_gaussians;
+        preprocessConstant.numGaussians = numGaussians;
         vkCmdPushConstants(commandBuffer, m_preprocessPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, preprocessConstant.getSize(), &preprocessConstant);
 
         // Compute Gaussian Preprocessing
-        vkCmdDispatch(commandBuffer, (num_gaussians + BLOCK_SIZE) / BLOCK_SIZE, 1, 1);
+        vkCmdDispatch(commandBuffer, (numGaussians + BLOCK_SIZE) / BLOCK_SIZE, 1, 1);
 
         // Create memory barrier for geometry buffer.
         VkBufferMemoryBarrier geomBarrier{};
@@ -214,6 +215,7 @@ namespace core {
         GaussianRasterizePushConstant rasterizeConstant;
         rasterizeConstant.bufferAddress = m_procBuffer.getDeviceAddress();
         rasterizeConstant.resolution = glm::uvec2(m_swapchain.extent.width, m_swapchain.extent.height);
+        rasterizeConstant.numGaussians = numGaussians;
         vkCmdPushConstants(commandBuffer, m_rasterizePipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, rasterizeConstant.getSize(), &rasterizeConstant);
 
         // Compute Gaussian Rasterization

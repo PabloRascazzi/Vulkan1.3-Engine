@@ -9,8 +9,9 @@
 
 layout(push_constant) uniform constants {
     uint64_t geomAddress;
-    uvec2 resolution;
     // TODO - uint64_t keysAddress;
+    uvec2 resolution;
+    uint numGaussians;
 } PushConstants;
 
 layout(binding = 0, set = 0, rgba32f) uniform image2D image;
@@ -41,8 +42,8 @@ void main() {
     bool done = !inside;
     if (done) atomicAdd(num_done, 1);
 
-    // TODO
-    ivec2 range = ivec2(0,1);
+    // Fetch range of sorted Gaussian IDs to process.
+    ivec2 range = ivec2(0, PushConstants.numGaussians); // TODO
     int batches = (range.y - range.x + BLOCK_SIZE) / BLOCK_SIZE;
     int todo = range.y - range.x;
 
@@ -63,7 +64,7 @@ void main() {
         int progress = i * BLOCK_SIZE + int(rank);
         if(range.x + progress < range.y) {
             // TODO - uint coll_id = key_list.id[range.x + progress];
-            uint coll_id = 0;
+            uint coll_id = range.x + progress;
             collected_geom[rank] = geom.data[coll_id];
         }
 
