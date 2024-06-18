@@ -32,7 +32,7 @@ namespace core {
 		void cleanup();
 		void update();
 
-		Camera* addCamera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n = 0.01f, const float& f = 1000.f);
+		Camera* addCamera(glm::mat4 transform, const float& fov, const glm::uvec2& resolution, const float& n = 0.01f, const float& f = 1000.f);
 		Object* addObject(Mesh* mesh, std::vector<Material*> materials, glm::mat4 transform, uint32_t shader);
 		Material* addMaterial(Texture* albedoMap, glm::vec3 albedo, Texture* metallicMap, float metallic, float smoothness, Texture* normalMap, glm::vec2 tilling, glm::vec2 offset);
 

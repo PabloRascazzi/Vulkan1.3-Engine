@@ -36,8 +36,8 @@ namespace core {
 		}
 	}
 
-	Camera* Scene::addCamera(glm::mat4 transform, const float& fov, const float& aspectRatio, const float& n, const float& f) {
-		Camera* cam = new Camera(transform, fov, aspectRatio, n, f);
+	Camera* Scene::addCamera(glm::mat4 transform, const float& fov, const glm::uvec2& resolution, const float& n, const float& f) {
+		Camera* cam = new Camera(transform, fov, resolution, n, f);
 		cameras.push_back(cam);
 		if (cameras.size() == 1) this->mainCamera = cameras[0];
 		return cameras[cameras.size()-1];

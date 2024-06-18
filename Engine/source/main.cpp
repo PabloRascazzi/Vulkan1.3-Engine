@@ -68,7 +68,7 @@ int main() {
     Object* demoCube = scene->addObject(cube, std::vector{ cubeMat }, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, -5.0f)), 0);
     Object* floor    = scene->addObject(plane, std::vector{ floorMat }, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -5.0f)), 0);
     Object* anvilObj = scene->addObject(anvil, std::vector{ anvilMat }, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, -2.0f)), 0);
-    Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 60.0f, context.getWindow().getAspectRatio());
+    Camera* camera   = scene->addCamera(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)), 45.0f, glm::uvec2(context.getWindow().getWidth(), context.getWindow().getHeight()));
     // Setup Scene.
     scene->setup();
 
