@@ -48,7 +48,8 @@ void main() {
     int todo = range.y - range.x;
 
     // Initialize aggregating variables.
-    float alpha = 1.0;
+    float alpha_inv = 1.0;
+    float alpha = 0.0;
     vec3 color = vec3(0);
 
     // Iterate over all Gaussians within range by batches of BLOCK_SIZE.
@@ -91,14 +92,20 @@ void main() {
             float a = opacity * exp(power);
             if(a < 1.0 / 255.0) continue;
             
+            // Check if the inverse alpha value is near 0.
+            // If so, pixel is done accumulating color.
+            float test = alpha_inv * (1 - a);
+			if (test < 0.00001) {
+				done = true;
+                if (done) atomicAdd(num_done, 1);
+				continue;
+			}
+
             // Obtain color from geometry list using id.
+            // Increment color and alpha, and set inverse alpha.
             color += collected_geom[j].color * a;
             alpha += a;
-
-            // Set thread to done when alpha reaches its max value.
-            // TODO - find better done conditon.
-            done = alpha > 1.0;
-            if (done) atomicAdd(num_done, 1);
+            alpha_inv = test; 
         }           
     }
 
